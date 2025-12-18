@@ -9,18 +9,11 @@ export default function Shell({ children, onLogout }) {
   const nav = useMemo(
     () => [
       { to: "/", label: "Panoramica", icon: HomeIcon },
-      { to: "/clienti", label: "Clienti", icon: UsersIcon },
-      { to: "/fatture", label: "Fatture", icon: CardIcon },
+ 
       { to: "/analisi-cr", label: "Centrale Rischi", icon: TrendIcon },
       { to: "/analisi-bilancio", label: "Bilanci", icon: BarsIcon },
       { to: "/allerta", label: "Questionari", icon: AlertIcon },
-      { to: "/simulazione", label: "Simulazione", icon: BeakerIcon },
-      { to: "/previsioni", label: "Previsioni", icon: TrendIcon },
-      { to: "/conti-correnti", label: "Conti", icon: CardIcon },
-      { to: "/movimenti", label: "Movimenti", icon: CardIcon },
-      { to: "/scadenze", label: "Scadenze", icon: CalendarIcon },
-      { to: "/cashflow", label: "Cash Flow", icon: CashIcon },
-      { to: "/aichat", label: "AI", icon: BotIcon },
+   
     ],
     []
   );
