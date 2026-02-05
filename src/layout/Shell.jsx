@@ -8,11 +8,10 @@ export default function Shell({ children, onLogout }) {
 
   const nav = useMemo(
     () => [
-      { to: "/", label: "Panoramica", icon: HomeIcon },
- 
+      { to: "/", label: "Allerta", icon: AlertIcon },
+       { to: "/analisi-bilancio", label: "Bilanci", icon: BarsIcon },
       { to: "/analisi-cr", label: "Centrale Rischi", icon: TrendIcon },
-      { to: "/analisi-bilancio", label: "Bilanci", icon: BarsIcon },
-      { to: "/allerta", label: "Questionari", icon: AlertIcon },
+      { to: "/allerta", label: "Questionari", icon: TrendIcon },
    
     ],
     []
@@ -45,7 +44,7 @@ export default function Shell({ children, onLogout }) {
       {/* TOPBAR */}
       <header className="h-[44px] bg-white border-b border-neutral-200/80 flex items-center justify-between px-3">
         <div className="text-[13px] font-medium tracking-tight" />
-        <CompanySelector />
+ 
       </header>
 
       <div className="flex">
@@ -67,11 +66,7 @@ export default function Shell({ children, onLogout }) {
 
           {/* Footer: Help + Logout */}
           <div className="absolute left-0 right-0 bottom-0 px-2 pb-3">
-            <FooterTile
-              label="Help Center"
-              icon={HelpIcon}
-              onClick={() => alert("Apri Help Center")}
-            />
+    
             <div className="mt-1" />
             <FooterTile label="Logout" icon={LogoutIcon} onClick={onLogout} />
           </div>

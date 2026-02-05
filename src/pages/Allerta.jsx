@@ -175,7 +175,7 @@ const load = (k, def) => { try { const v = localStorage.getItem(k); return v ? J
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
 /** ---------- Backend helpers ---------- */
-const API_BASE = (import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_BASE ?? "https://ada-stage.compaynet-b2b.com").replace(/\/$/, "");
 function getToken(){ try{ return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; }catch{ return null; } }
 function getCompanyId(){ try{ return JSON.parse(localStorage.getItem("sb_company"))?.id || null; }catch{ return null; } }
 async function apiPost(path, body){

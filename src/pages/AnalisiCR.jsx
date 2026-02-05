@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 /* ================== MINI API ================== */
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000/api";
+const API_BASE =  "https://ada-stage.compaynet-b2b.com/api";
 
 function getToken() {
   try { return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; } catch { return null; }
@@ -189,8 +189,8 @@ export default function AnalisiCR() {
 
       {/* Tabella */}
       <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-50 text-neutral-700">
+<table className="w-full max-w-4xl text-sm">
+            <thead className="bg-neutral-50 text-neutral-700">
             <tr>
               <Th>Azienda</Th>
               <Th>Periodo</Th>
@@ -213,7 +213,9 @@ export default function AnalisiCR() {
               filtered.map((r) => (
                 <tr key={r.id} className="border-t border-neutral-200">
                   <Td>{r.azienda}</Td>
-                  <Td className="whitespace-nowrap">{r.periodo}</Td>
+         <Td className="w-24 min-w-[250px] leading-tight py-2">
+  {r.periodo}
+</Td>
                   <Td className="whitespace-nowrap"><Badge tone="neutral">{r.tipo}</Badge></Td>
                   <Td className="whitespace-nowrap">
                     <Badge tone={r.formato === "XML" ? "indigo" : "neutral"}>{r.formato}</Badge>

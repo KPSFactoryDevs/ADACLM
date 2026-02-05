@@ -9,7 +9,7 @@ import {
   PieChart, Pie, Cell,
 } from "recharts";
 import { CentraleRischi } from "../lib/api";
-
+import { useParams } from 'react-router-dom';
 /* ----------------- Utils ----------------- */
 const fmtMoney = (v) =>
   (Number(v) || 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
@@ -209,14 +209,16 @@ function parseStateFromApi(raw) {
 
 /* ----------------- Page ----------------- */
 export default function CentraleRischiDettaglio(props) {
+
+  const { id } = useParams();
   const {
     codiceDocumento,      // <- DEFAULT period da qui
-    period = undefined,   // se lo passi, override
+period = id,  // se lo passi, override
     dataInizio = undefined,
     dataFine   = undefined,
     inputBanks = undefined,
   } = props;
-
+ 
   const effectivePeriod = period || '835642630';
 
   const [loading, setLoading] = useState(true);
@@ -231,6 +233,7 @@ export default function CentraleRischiDettaglio(props) {
         setLoading(true);
         setError(null);
         if (!effectivePeriod) throw new Error("Manca il parametro 'codiceDocumento' (period).");
+
         const raw = await CentraleRischi.andamentale({
           period: effectivePeriod,
           data_inizio: dataInizio,

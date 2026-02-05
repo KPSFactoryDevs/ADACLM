@@ -1,6 +1,6 @@
 // src/lib/api.js
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api";
-const API_URL  = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api";
+const API_BASE = import.meta.env.VITE_API_BASE || "https://ada-stage.compaynet-b2b.com/api";
+const API_URL  = import.meta.env.VITE_API_BASE || "https://ada-stage.compaynet-b2b.com/api";
 
 /* ----------------- helpers token/azienda ----------------- */
 function getToken() {
@@ -114,7 +114,7 @@ export const Invoices = {
 export const CentraleRischi = {
   async andamentale({ period, data_inizio, data_fine, inputBanks } = {}) {
     if (!period) throw new Error("Parametro 'period' obbligatorio");
-
+ 
     // Costruzione path con segmenti opzionali, come da rotta Laravel
     let path = `/crAndamentale/${encodeURIComponent(period)}`;
     if (data_inizio && data_fine) {

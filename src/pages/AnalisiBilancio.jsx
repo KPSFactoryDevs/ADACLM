@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 /* ========== MINI API CLIENT LOCALE (puoi spostarlo in src/lib/api.js) ========== */
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000/api";
+const API_BASE =  "https://ada-stage.compaynet-b2b.com/api";
 
 function getToken() {
   try { return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; }

@@ -171,7 +171,7 @@ function Gauge({ value = 0, color = "#111", size = 84, stroke = 10, label = "" }
       </svg>
       <div className="text-sm">
         <div className="font-medium">{label}</div>
-        <div className="text-neutral-500">punteggio /100</div>
+        <div className="text-neutral-500">punteggio 77/100</div>
       </div>
     </div>
   );
@@ -249,14 +249,13 @@ export default function Dashboard() {
       <div className="flex items-start justify-between">
         <div>
           <div className="text-sm text-[#5b63ff] font-medium">Dashboard</div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Benvenuto, {user?.name}</h1>
-          <p className="text-sm text-neutral-500">Azienda selezionata: <b>{company?.name}</b></p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Benvenuto, {user?.name}</h1> 
         </div>
      
       </div>
 
       {/* RIGA 1 — Allerta + Saldo */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-4">
         <section className="lg:col-span-2 bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -295,14 +294,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
-          <div className="text-sm text-neutral-500">Saldo conti correnti</div>
-          <div className="mt-1 text-3xl font-semibold tracking-tight">{fmtMoney(saldoTotale)}</div>
-          <p className="text-sm text-neutral-500">Disponibile in EUR</p>
-          <div className="mt-4">
-            <Link to="/conti-correnti" className="text-sm text-[#5b63ff] hover:underline">Vai ai conti →</Link>
-          </div>
-        </section>
+ 
       </div>
 
       {/* === Analisi per area ======================================== */}
@@ -359,7 +351,7 @@ export default function Dashboard() {
       </div>
 
       {/* RIGA 3 — Vai a (con icone) */}
-      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Link to="/analisi-bilancio" className="rounded-xl border border-neutral-200 p-4 bg-white hover:bg-neutral-50 transition flex items-center gap-3">
           <IconCircle><BarsIcon /></IconCircle>
           <div>
@@ -382,24 +374,11 @@ export default function Dashboard() {
           </div>
         </Link>
 
-                <Link to="/simulazione" className="rounded-xl border border-neutral-200 p-4 bg-white hover:bg-neutral-50 transition flex items-center gap-3">
-          <IconCircle><AlertIcon /></IconCircle>
-          <div>
-            <div className="text-sm text-neutral-500">Vai a</div>
-            <div className="mt-0.5 font-semibold">Simulazione</div>
-          </div>
-        </Link>
-                <Link to="/allerta" className="rounded-xl border border-neutral-200 p-4 bg-white hover:bg-neutral-50 transition flex items-center gap-3">
-          <IconCircle><AlertIcon /></IconCircle>
-          <div>
-            <div className="text-sm text-neutral-500">Vai a</div>
-            <div className="mt-0.5 font-semibold">Conti</div>
-          </div>
-        </Link>
+       
       </div>
 
       {/* RIGA 4 — Tabelle istituti & banche */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-1 gap-4">
         {/* Istituti trovati nelle CR */}
         <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
           <div className="px-4 py-3 border-b border-neutral-200">
@@ -440,40 +419,7 @@ export default function Dashboard() {
           </table>
         </section>
 
-        {/* Banche dei conti correnti */}
-        <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
-          <div className="px-4 py-3 border-b border-neutral-200">
-            <h3 className="font-semibold">Banche dei conti correnti</h3>
-          </div>
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 text-neutral-700">
-              <tr>
-                <th className="px-3 py-3 text-left">Banca</th>
-                <th className="px-3 py-3 text-left">Conti</th>
-                <th className="px-3 py-3 text-right">Saldo totale</th>
-                <th className="px-3 py-3 text-left">Ultima sync</th>
-              </tr>
-            </thead>
-            <tbody>
-              {BANKS.map((b) => {
-                const total = b.accounts.reduce((s, a) => s + (a.balance || 0), 0);
-                return (
-                  <tr key={b.id} className="border-t border-neutral-200">
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        <BrandLogo logo={b.logo} />
-                        <span className="font-medium">{b.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">{b.accounts.length}</td>
-                    <td className="px-3 py-3 text-right tabular-nums">{fmtMoney(total)}</td>
-                    <td className="px-3 py-3">{b.lastSync}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </section>
+ 
       </div>
     </div>
   );
