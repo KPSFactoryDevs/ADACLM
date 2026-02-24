@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { SearchIcon, UploadIcon, DownloadIcon, TrashIcon } from "../components/ui/Icons";
+import { Badge } from "../components/ui/Badge";
 
-/* ========== MINI API CLIENT LOCALE (puoi spostarlo in src/lib/api.js) ========== */
-const API_BASE =  "https://ada-stage.compaynet-b2b.com/api";
+/* ========== MINI API CLIENT LOCALE ========== */
+const API_BASE = "http://127.0.0.1:8000/api";
 
 function getToken() {
   try { return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; }
@@ -28,7 +30,6 @@ async function api(path, { method = "GET", body, auth = true, isForm = false } =
     body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
   });
 
-  // Gestisci “failed to fetch” a monte (CORS/https)
   let data = null;
   try { data = await res.json(); } catch (_) { data = null; }
 
@@ -40,57 +41,61 @@ async function api(path, { method = "GET", body, auth = true, isForm = false } =
 }
 
 const Bilanci = {
-  // Restituisce i documenti legati alla company corrente (il backend filtra da header)
   async listDocuments() {
     return api("/getBilanciDocuments", { method: "GET" });
   },
-  // Upload iniziale (come nel vecchio js: /recapBilancio)
   async upload({ file, forma_giuridica, tipo_azienda }) {
     const fd = new FormData();
-    // attenzione: nel vecchio componente inviavano due volte "base64" (file e nome),
-    // qui inviamo "file" + "filename" in modo pulito. Se il backend si aspetta "base64", rimappa qui sotto.
     fd.append("file", file);
     fd.append("filename", file.name);
     fd.append("forma_giuridica", forma_giuridica);
     fd.append("tipo_azienda", tipo_azienda);
 
-    // Se il backend vuole "base64" come chiave (come nel legacy):
+    // Legacy backup keys
      fd.append("base64", file);
      fd.append("base64", file.name);
 
     return api("/recapBilancio", { method: "POST", isForm: true, body: fd });
   },
-  // Settori per il select
   async getSettori() {
-    return api("/getSettori", { method: "GET", auth: false }); // se è pubblico; altrimenti true
+    return api("/getSettori", { method: "GET", auth: false });
+  },
+  async setPredefinito(id) {
+    return api(`/bilancio/${id}/predefinito`, { method: "PUT" });
   },
 };
+
+function StarIcon({ className, solid }) {
+  return (
+    <svg className={className} fill={solid ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={solid ? 0 : 2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+    </svg>
+  );
+}
 
 /* ======================= COMPONENTE PRINCIPALE ======================= */
 
 export default function AnalisiBilancio() {
   const [q, setQ] = useState("");
-  const [rows, setRows] = useState([]); // lista documenti dal backend
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState(null); // {type:'success'|'error', msg:string}
+  const [toast, setToast] = useState(null); 
   const [modalOpen, setModalOpen] = useState(false);
 
   const navigate = useNavigate();
 
-  // Per il modulo nella modale
+  // Modal State
   const [file, setFile] = useState(null);
   const [formaGiuridica, setFormaGiuridica] = useState("");
   const [tipoAzienda, setTipoAzienda] = useState("");
   const [settori, setSettori] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // Carica la lista dei bilanci all’avvio (per la company selezionata)
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
         const data = await Bilanci.listDocuments();
-        // data: assumo array di documenti dal backend
         setRows(mapDocumentsToRows(data));
       } catch (e) {
         showToast("error", e.message || "Errore nel recupero dei bilanci");
@@ -100,7 +105,6 @@ export default function AnalisiBilancio() {
     })();
   }, []);
 
-  // Preleva i settori quando apro la modale
   useEffect(() => {
     if (!modalOpen) return;
     (async () => {
@@ -108,13 +112,11 @@ export default function AnalisiBilancio() {
         const s = await Bilanci.getSettori();
         setSettori(s);
       } catch (e) {
-        // Ignora: mostro il select vuoto o un messaggio
         console.error("getSettori failed:", e);
       }
     })();
   }, [modalOpen]);
 
-  // Ricerca
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     if (!term) return rows;
@@ -127,7 +129,6 @@ export default function AnalisiBilancio() {
     );
   }, [q, rows]);
 
-  // Helpers
   function showToast(type, msg) {
     setToast({ type, msg });
     setTimeout(() => setToast(null), 2600);
@@ -139,46 +140,54 @@ export default function AnalisiBilancio() {
   }
 
   function mapDocumentsToRows(docs) {
-  // Estrai l'array reale
-  let list = Array.isArray(docs) ? docs : (docs?.data ?? []);
-  // Appiattisci se annidato (es. [[{...}]])
-  if (Array.isArray(list) && typeof list.flat === "function") {
-    list = list.flat(Infinity);
-  } else if (Array.isArray(list)) {
-    // fallback senza flat()
-    list = list.reduce((acc, x) => acc.concat(x), []);
+    let list = Array.isArray(docs) ? docs : (docs?.data ?? []);
+    if (Array.isArray(list) && typeof list.flat === "function") {
+      list = list.flat(Infinity);
+    } else if (Array.isArray(list)) {
+      list = list.reduce((acc, x) => acc.concat(x), []);
+    }
+
+    const companyNameFallback = currentCompanyName();
+
+    return list
+      .filter(d => String(d.type || "").toLowerCase() === "bilancio")
+      .map(d => {
+        const esercizio = d.anno_fine || d.anno_inizio || "";
+        const periodo = d.anno_inizio && d.anno_fine ? `${d.anno_inizio} – ${d.anno_fine}` : "";
+        const formato = (d.filename || "").toLowerCase().endsWith(".xbrl") ? "XBRL" : "PDF";
+
+        const rawStatus = (d.status || "").trim();
+        const stato = rawStatus
+          ? (rawStatus === "Completato" ? "Completo" : rawStatus)
+          : "Da Verificare";
+
+        return {
+          id: d.id,
+          azienda: d.nome_azienda || companyNameFallback || "—",
+          esercizio: esercizio ? String(esercizio) : "—",
+          periodo,
+          formato,
+          fonte: "Upload manuale",
+          stato,
+          uploadedAt: formatDateTime(d.created_at),
+          size: d.sizeReadable || "—",
+          predefinito: d.predefinito || false,
+          raw: d,
+        };
+      });
   }
 
-  const companyNameFallback = currentCompanyName();
-
-  return list
-    .filter(d => String(d.type || "").toLowerCase() === "bilancio") // tieni solo i bilanci
-    .map(d => {
-      const esercizio = d.anno_fine || d.anno_inizio || "";
-      const periodo = d.anno_inizio && d.anno_fine ? `${d.anno_inizio} – ${d.anno_fine}` : "";
-      const formato = (d.filename || "").toLowerCase().endsWith(".xbrl") ? "XBRL" : "PDF";
-
-      // status di default
-      const rawStatus = (d.status || "").trim();
-      const stato = rawStatus
-        ? (rawStatus === "Completato" ? "Completo" : rawStatus)
-        : "Da Verificare";
-
-      return {
-        id: d.id,
-        azienda: d.nome_azienda || companyNameFallback || "—",
-        esercizio: esercizio ? String(esercizio) : "—",
-        periodo,
-        formato,
-        fonte: "Upload manuale",
-        stato,
-        uploadedAt: formatDateTime(d.created_at),
-        size: d.sizeReadable || "—",
-        raw: d,
-      };
-    });
-}
-
+  async function toggleDefault(id, current) {
+    if (current) return;
+    try {
+      await Bilanci.setPredefinito(id);
+      showToast("success", "Bilancio impostato come predefinito.");
+      const refreshed = await Bilanci.listDocuments();
+      setRows(mapDocumentsToRows(refreshed));
+    } catch(e) {
+      showToast("error", e.message || "Errore");
+    }
+  }
 
   function formatDateTime(dt) {
     if (!dt) return "—";
@@ -190,223 +199,265 @@ export default function AnalisiBilancio() {
     }
   }
 
- async function handleUpload() {
-  if (!file || !formaGiuridica || !tipoAzienda) {
-    showToast("error", "Compila tutti i campi richiesti");
-    return;
+  async function handleUpload() {
+    if (!file || !formaGiuridica || !tipoAzienda) {
+      showToast("error", "Compila tutti i campi richiesti");
+      return;
+    }
+    setUploading(true);
+    try {
+      await Bilanci.upload({ file, forma_giuridica: formaGiuridica, tipo_azienda: tipoAzienda });
+      const refreshed = await Bilanci.listDocuments();
+      setRows(mapDocumentsToRows(refreshed));
+
+      setModalOpen(false);
+      setFile(null);
+      setFormaGiuridica("");
+      setTipoAzienda("");
+      showToast("success", "Bilancio caricato correttamente");
+    } catch (e) {
+      showToast("error", e.message || "Caricamento fallito");
+    } finally {
+      setUploading(false);
+    }
   }
-  setUploading(true);
-  try {
-    await Bilanci.upload({ file, forma_giuridica: formaGiuridica, tipo_azienda: tipoAzienda });
-
-    // 🔁 Ricarica elenco dalla API che lista i documenti della company
-    const refreshed = await Bilanci.listDocuments();
-    setRows(mapDocumentsToRows(refreshed)); // <--- usa la nuova normalizzazione
-
-    setModalOpen(false);
-    setFile(null);
-    setFormaGiuridica("");
-    setTipoAzienda("");
-    showToast("success", "Bilancio caricato correttamente");
-  } catch (e) {
-    showToast("error", e.message || "Caricamento fallito");
-  } finally {
-    setUploading(false);
-  }
-}
-
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 pb-20 font-sans min-h-screen text-slate-800 animate-fade-in-up">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <div className="text-sm text-[#5b63ff] font-medium">Bilanci</div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Tutti i Bilanci</h1>
-          <p className="text-sm text-neutral-500">
-            Elenco dei bilanci caricati e pronti per l’analisi.
+          <div className="text-sm text-[#5b63ff] tracking-wide font-semibold uppercase">Analisi</div>
+          <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">Archivio Bilanci</h1>
+          <p className="mt-1 text-slate-500">
+            Visualizza e analizza i bilanci depositati. Caricane di nuovi tramite file XBRL/XML o PDF.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Importa bilancio -> apre modale */}
           <button
             onClick={() => setModalOpen(true)}
-            className="h-9 px-3 rounded-lg bg-neutral-900 text-white text-sm hover:opacity-90 flex items-center gap-2"
+            className="h-10 px-4 rounded-xl shadow-md bg-gradient-to-r from-[#5b63ff] to-[#7e85ff] text-white text-sm font-semibold hover:opacity-90 transition-transform duration-300 hover:-translate-y-0.5 flex items-center gap-2"
           >
-            <UploadIcon />
+            <UploadIcon className="w-4 h-4" />
             Importa bilancio
           </button>
         </div>
       </div>
 
-      {/* Barra ricerca / filtri leggera */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
-          <span className="absolute inset-y-0 left-2 grid place-items-center">
-            <SearchIcon />
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative group">
+          <span className="absolute inset-y-0 left-3 grid place-items-center text-slate-400 group-hover:text-[#5b63ff] transition-colors">
+            <SearchIcon className="w-4 h-4" />
           </span>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Cerca per azienda, esercizio, formato…"
-            className="h-9 pl-8 pr-3 rounded-lg border border-neutral-300 text-sm w-[320px]"
+            className="h-10 pl-9 pr-4 rounded-xl border border-slate-200 bg-white shadow-sm hover:border-[#5b63ff]/30 focus:border-[#5b63ff] focus:ring focus:ring-[#5b63ff]/20 outline-none transition-all text-sm w-full md:w-[360px]"
           />
         </div>
-        <span className="text-sm text-neutral-500">
-          {filtered.length} bilancio{filtered.length !== 1 ? "i" : ""} trovati
+        <span className="text-sm font-medium text-slate-400">
+          <span className="text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md mr-1">{filtered.length}</span> bilanci trovati
         </span>
       </div>
 
-      {/* Tabella */}
-      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-50 text-neutral-700">
-            <tr>
-              <Th>Azienda</Th>
-              <Th>Esercizio</Th>
-              <Th>Periodo</Th>
-              <Th>Formato</Th>
-              <Th>Fonte</Th>
-              <Th>Stato</Th>
-              <Th>Caricato il</Th>
-              <Th>Dimensione</Th>
-              <Th className="text-right pr-4">Azioni</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={9} className="px-3 py-8 text-center text-neutral-500">Caricamento…</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={9} className="px-3 py-8 text-center text-neutral-500">Nessun bilancio</td></tr>
-            ) : (
-              filtered.map((r) => (
-                <tr key={r.id} className="border-t border-neutral-200">
-                  <Td>{r.azienda}</Td>
-                  <Td className="whitespace-nowrap">{r.esercizio}</Td>
-                  <Td className="whitespace-nowrap">{r.periodo}</Td>
-                  <Td>
-                    <Badge tone={r.formato === "XBRL" ? "indigo" : "neutral"}>{r.formato}</Badge>
-                  </Td>
-                  <Td className="whitespace-nowrap">{r.fonte}</Td>
-                  <Td>
-                    <Badge tone={r.stato === "Completo" ? "teal" : "amber"}>{r.stato}</Badge>
-                  </Td>
-                  <Td className="whitespace-nowrap">{r.uploadedAt}</Td>
-                  <Td className="whitespace-nowrap">{r.size}</Td>
-                  <Td className="text-right pr-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        className="h-8 px-3 rounded-lg bg-[#ECE8FF] text-[#5b63ff] font-medium"
-                        onClick={() => navigate(`/analisi-bilancio/${r.id}`)}
-                      >
-                        Analizza
-                      </button>
-         
-                      <button
-                        className="h-8 px-3 rounded-lg bg-neutral-900 text-white hover:opacity-90"
-                        onClick={() => window.open(r.raw?.path || "#", "_blank")}
-                      >
-                        Scarica
-                      </button>
-                      <button
-                        className="h-8 px-3 rounded-lg bg-red-600 text-white hover:opacity-90"
-                        onClick={() => alert(`Elimina id ${r.id} (implementa DELETE /bilancio/:id)`)}
-                      >
-                        Elimina
-                      </button>
+      {/* Table Container */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white/90 backdrop-blur-md shadow-sm ring-1 ring-slate-100">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50/50 text-slate-500 font-semibold border-b border-slate-100">
+              <tr>
+                <Th>Azienda</Th>
+                <Th>Esercizio</Th>
+                <Th>Formato</Th>
+                <Th>Stato</Th>
+                <Th>Caricato il</Th>
+                <Th>Size</Th>
+                <Th className="text-right pr-6">Azioni</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                       <div className="w-8 h-8 border-4 border-slate-200 border-t-[#5b63ff] rounded-full animate-spin"></div>
+                       <span className="font-semibold text-sm">Caricamento bilanci...</span>
                     </div>
-                  </Td>
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : filtered.length === 0 ? (
+                <tr>
+                   <td colSpan={7} className="px-6 py-12 text-center text-slate-500 font-medium bg-slate-50/30">
+                     Nessun bilancio trovato. Clicca su "Importa bilancio" per iniziare.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((r) => (
+                  <tr key={r.id} className="hover:bg-slate-50/80 transition-colors group">
+                    <Td className="font-semibold text-slate-800">
+                      <div className="flex items-center gap-2">
+                        {r.azienda}
+                        {r.predefinito && (
+                          <span title="Bilancio Predefinito" className="text-amber-500">
+                            <StarIcon className="w-4 h-4" solid={true} />
+                          </span>
+                        )}
+                      </div>
+                    </Td>
+                    <Td className="whitespace-nowrap font-medium text-slate-600">
+                      {r.esercizio}
+                      {r.periodo && r.periodo !== String(r.esercizio) && (
+                         <div className="text-xs text-slate-400 font-normal mt-0.5">{r.periodo}</div>
+                      )}
+                    </Td>
+                    <Td>
+                      <Badge tone={r.formato === "XBRL" ? "indigo" : "neutral"} className="shadow-none">{r.formato}</Badge>
+                    </Td>
+                    <Td>
+                      <Badge tone={r.stato === "Completo" ? "teal" : "amber"} className="shadow-none">{r.stato}</Badge>
+                    </Td>
+                    <Td className="whitespace-nowrap text-slate-500">{r.uploadedAt}</Td>
+                    <Td className="whitespace-nowrap text-slate-500">{r.size}</Td>
+                    <Td className="text-right pr-6">
+                      <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          className="h-8 px-3 rounded-lg border border-[#D8D2FF] bg-[#ECE8FF] text-[#5b63ff] font-medium transition duration-200 hover:bg-[#5b63ff] hover:text-white"
+                          onClick={() => navigate(`/analisi-bilancio/${r.id}`)}
+                        >
+                          Analizza
+                        </button>
+                        <button
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                          title="Scarica"
+                          onClick={() => window.open(r.raw?.path || "#", "_blank")}
+                        >
+                          <DownloadIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${r.predefinito ? "text-amber-500 bg-amber-50" : "text-slate-400 bg-slate-100 hover:bg-slate-200 hover:text-amber-500"}`}
+                          title={r.predefinito ? "Predefinito" : "Imposta come Predefinito"}
+                          onClick={() => toggleDefault(r.id, r.predefinito)}
+                        >
+                          <StarIcon className="w-4 h-4" solid={r.predefinito} />
+                        </button>
+                        <button
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors"
+                          title="Elimina"
+                          onClick={() => alert(`Elimina id ${r.id} (implementa DELETE /bilancio/:id)`)}
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </Td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* TOAST */}
+      {/* TOAST SYSTEM (Sarebbe ideale spostarlo globalmente) */}
       {toast && (
-        <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-md text-sm text-white ${
-          toast.type === "success" ? "bg-emerald-600" : "bg-red-600"
+        <div className={`fixed z-50 bottom-6 right-6 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium animate-slide-up ${
+          toast.type === "success" 
+            ? "bg-emerald-50 text-emerald-800 border-emerald-200 shadow-emerald-500/10" 
+            : "bg-rose-50 text-rose-800 border-rose-200 shadow-rose-500/10"
         }`}>
-          {toast.msg}
+          <div className="flex items-center gap-2">
+             <span className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+             {toast.msg}
+          </div>
         </div>
       )}
 
       {/* MODALE IMPORT */}
       {modalOpen && (
-        <div className="fixed inset-0 z-40 bg-black/30 grid place-items-center p-4">
-          <div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-lg">
-            <div className="text-lg font-semibold">Importa bilancio</div>
-            <p className="text-sm text-neutral-500 mt-1">
-              Seleziona il file XBRL/PDF e completa i campi richiesti.
-            </p>
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm grid place-items-center p-4 animate-fade-in">
+          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-100 transform transition-all">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+               <div>
+                 <div className="text-xl font-bold text-slate-800">Importa bilancio</div>
+                 <p className="text-sm text-slate-500 mt-1">Carica un file nel formato XBRL, XML o PDF.</p>
+               </div>
+               <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center">
+                  <UploadIcon className="w-6 h-6" />
+               </div>
+            </div>
 
-            <div className="mt-4 space-y-4">
+            <div className="mt-6 space-y-5">
               <div>
-                <label className="text-sm font-medium">File bilancio *</label>
-                <input
-                  type="file"
-                  accept=".xbrl,.xml,.pdf,.zip"
-                  className="mt-1 block w-full text-sm"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                />
+                <label className="text-sm font-semibold text-slate-700 block mb-1.5">File bilancio *</label>
+                <div className="relative group">
+                  <input
+                    type="file"
+                    accept=".xbrl,.xml,.pdf,.zip"
+                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-[#5b63ff]/10 file:text-[#5b63ff] hover:file:bg-[#5b63ff]/20 transition-all cursor-pointer border border-slate-200 rounded-xl"
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium">Forma giuridica *</label>
+                <label className="text-sm font-semibold text-slate-700 block mb-1.5">Forma giuridica *</label>
                 <select
-                  className="mt-1 w-full h-10 rounded-lg border border-neutral-200 px-3 text-sm"
+                  className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 focus:outline-none focus:border-[#5b63ff] focus:bg-white focus:ring-2 focus:ring-[#5b63ff]/20 transition-all cursor-pointer"
                   value={formaGiuridica}
                   onChange={(e) => setFormaGiuridica(e.target.value)}
                 >
-                  <option value="" hidden>Seleziona la forma giuridica</option>
-                  <option value="DITTA INDIVIDUALE">DITTA INDIVIDUALE</option>
-                  <option value="SOCIETA A RESPONSABILITA LIMITATA SRL">SOCIETA A RESPONSABILITA LIMITATA SRL</option>
-                  <option value="SOCIETA IN NOME COLLETTIVO SNC">SOCIETA IN NOME COLLETTIVO SNC</option>
-                  <option value="SOCIETA IN ACCOMANDITA SEMPLICE SAS">SOCIETA IN ACCOMANDITA SEMPLICE SAS</option>
-                  <option value="SOCIETA PER AZIONI SPA">SOCIETA PER AZIONI SPA</option>
+                  <option value="" hidden disabled>Seleziona la forma giuridica...</option>
+                  <option value="DITTA INDIVIDUALE">Ditta Individuale</option>
+                  <option value="SOCIETA A RESPONSABILITA LIMITATA SRL">SRL - Società a Responsabilità Limitata</option>
+                  <option value="SOCIETA IN NOME COLLETTIVO SNC">SNC - Società in Nome Collettivo</option>
+                  <option value="SOCIETA IN ACCOMANDITA SEMPLICE SAS">SAS - Società in Accomandita Semplice</option>
+                  <option value="SOCIETA PER AZIONI SPA">SPA - Società per Azioni</option>
+                  <option value="SOCIETA A RESPONSABILITA LIMITATA SEMPLIFICATA SRLS">SRLS - Società a Resp. Limitata Semplificata</option>
                 </select>
               </div>
 
               <div>
-                <label className="text-sm font-medium">Tipo azienda *</label>
+                <label className="text-sm font-semibold text-slate-700 block mb-1.5">Settore Operativo *</label>
                 <select
-                  className="mt-1 w-full h-10 rounded-lg border border-neutral-200 px-3 text-sm"
+                  className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 focus:outline-none focus:border-[#5b63ff] focus:bg-white focus:ring-2 focus:ring-[#5b63ff]/20 transition-all cursor-pointer"
                   value={tipoAzienda}
                   onChange={(e) => setTipoAzienda(e.target.value)}
                 >
-                  <option value="" hidden>Seleziona il tipo di azienda</option>
-                  {/* Industria */}
-                  {settori?.Industria && Object.keys(settori.Industria).map((k, i) => (
-                    <option key={`ind-${i}`} value={k}>{k}</option>
-                  ))}
-                  {/* Commercio */}
-                  {settori?.Commercio && Object.keys(settori.Commercio).map((k, i) => (
-                    <option key={`com-${i}`} value={k}>{k}</option>
-                  ))}
-                  {/* Servizi */}
-                  {settori?.Servizi && Object.keys(settori.Servizi).map((k, i) => (
-                    <option key={`srv-${i}`} value={k}>{k}</option>
-                  ))}
+                  <option value="" hidden disabled>Seleziona il tipo di azienda...</option>
+                  {settori?.Industria && <optgroup label="Industria" className="font-semibold text-slate-400">
+                    {Object.keys(settori.Industria).map((k, i) => <option key={`ind-${i}`} value={k} className="font-medium text-slate-700">{k}</option>)}
+                  </optgroup>}
+                  {settori?.Commercio && <optgroup label="Commercio" className="font-semibold text-slate-400">
+                    {Object.keys(settori.Commercio).map((k, i) => <option key={`com-${i}`} value={k} className="font-medium text-slate-700">{k}</option>)}
+                  </optgroup>}
+                  {settori?.Servizi && <optgroup label="Servizi" className="font-semibold text-slate-400">
+                    {Object.keys(settori.Servizi).map((k, i) => <option key={`srv-${i}`} value={k} className="font-medium text-slate-700">{k}</option>)}
+                  </optgroup>}
                 </select>
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-100">
               <button
                 onClick={() => { setModalOpen(false); setFile(null); setFormaGiuridica(""); setTipoAzienda(""); }}
-                className="h-10 px-4 rounded-lg border border-neutral-200"
+                className="h-10 px-5 rounded-xl font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
                 disabled={uploading}
               >
                 Annulla
               </button>
               <button
                 onClick={handleUpload}
-                className="h-10 px-4 rounded-lg bg-neutral-900 text-white disabled:opacity-60"
+                className="h-10 px-6 rounded-xl font-semibold bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 disabled={uploading}
               >
-                {uploading ? "Caricamento…" : "Carica"}
+                {uploading ? (
+                  <span className="flex items-center gap-2">
+                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                     Caricamento...
+                  </span>
+                ) : "Carica Bilancio"}
               </button>
             </div>
           </div>
@@ -418,37 +469,8 @@ export default function AnalisiBilancio() {
 
 /* ------- Small UI helpers ------- */
 function Th({ children, className = "" }) {
-  return <th className={`px-3 py-3 text-left ${className}`}>{children}</th>;
+  return <th className={`px-6 py-4 text-left font-semibold ${className}`}>{children}</th>;
 }
 function Td({ children, className = "" }) {
-  return <td className={`px-3 py-3 align-top ${className}`}>{children}</td>;
-}
-function Badge({ children, tone = "neutral" }) {
-  const tones = {
-    indigo: "bg-[#F1EFFF] text-[#5b63ff] border-[#D8D2FF]",
-    teal: "bg-teal-100 text-teal-800 border-teal-200",
-    amber: "bg-amber-100 text-amber-800 border-amber-200",
-    neutral: "bg-neutral-100 text-neutral-700 border-neutral-200",
-  };
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border ${tones[tone]}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
-      {children}
-    </span>
-  );
-}
-function SearchIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M20 20l-3.2-3.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
-function UploadIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <path d="M12 19V5m0 0-4 4m4-4 4 4M5 19h14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
+  return <td className={`px-6 py-4 align-middle ${className}`}>{children}</td>;
 }
