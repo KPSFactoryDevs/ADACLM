@@ -6,7 +6,7 @@ const load = (k, def) => { try { const v = localStorage.getItem(k); return v ? J
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
 /** ===== Config & API ===== */
-const API_BASE = (import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_BASE ?? "https://ada-stage.compaynet-b2b.com").replace(/\/$/, "");
 
 // Legge auth e headers standard (Authorization + CurrentCompany se presenti)
 function commonHeaders() {

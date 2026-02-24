@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 /* ======================= Config & API ======================= */
-const API_BASE = (import.meta.env.VITE_API_BASE ?? import.meta.env.REACT_APP_API_URL ?? "http://127.0.0.1:8000/api").replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_BASE ?? import.meta.env.REACT_APP_API_URL ?? "https://ada-stage.compaynet-b2b.com/api").replace(/\/$/, "");
 
 function getAuth() {
   try {
