@@ -505,9 +505,9 @@ export default function AnalisiBilancioDettaglio() {
               <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">
                 {loading ? <SkLine w={280} h={32} /> : <>Panoramica di {nomeAzienda ? nomeAzienda : "Azienda"}</>}
               </h1>
-              <p className="mt-2 text-sm text-slate-500 max-w-xl leading-relaxed">
+              <div className="mt-2 text-sm text-slate-500 max-w-xl leading-relaxed">
                 {loading ? <SkLine w={340} /> : "Punteggio calcolato in tempo reale sulle grandezze contabili estratte, integrato con gli indicatori del Consiglio Nazionale dei Dottori Commercialisti (CNDC\\EC)."}
-              </p>
+              </div>
               <div className="mt-5 flex flex-wrap items-center gap-4">
                 <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">{loading ? <SkLine w={60} /> : "Giudizio finale"}</span>
                 {loading ? (
