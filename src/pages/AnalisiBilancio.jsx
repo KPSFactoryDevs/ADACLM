@@ -4,7 +4,7 @@ import { SearchIcon, UploadIcon, DownloadIcon, TrashIcon } from "../components/u
 import { Badge } from "../components/ui/Badge";
 
 /* ========== MINI API CLIENT LOCALE ========== */
-const API_BASE = "http://127.0.0.1:8000/api";
+const API_BASE = "https://ada-stage.compaynet-b2b.com/api";
 
 function getToken() {
   try { return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; }
