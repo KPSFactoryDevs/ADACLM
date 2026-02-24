@@ -1,9 +1,13 @@
 // src/pages/AnalisiBilancioDettaglio.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
+import { Gauge } from "../components/ui/Gauge";
+import { Badge } from "../components/ui/Badge";
+import { Pill } from "../components/ui/Pill";
+import { PencilIcon, ArrowRightIcon, CheckCircleIcon, XCircleIcon } from "../components/ui/Icons";
 
 /* ======================= Config & API ======================= */
-const API_BASE = "https://ada-stage.compaynet-b2b.com/api"
+const API_BASE = "https://ada-stage.compaynet-b2b.com/api";
 
 function getAuth() {
   try {
@@ -59,13 +63,13 @@ async function postMissingVoices(documentId, voci) {
 
 /* ======================= Scale / utils UI ======================= */
 const SCALE = [
-  { label: "Solido",        min: 90, color: "#16a34a" },
-  { label: "Molto buono",   min: 80, color: "#22c55e" },
-  { label: "Buono",         min: 70, color: "#4ade80" },
-  { label: "Neutro",        min: 60, color: "#a3a3a3" },
-  { label: "Debole",        min: 50, color: "#f59e0b" },
-  { label: "Molto debole",  min: 40, color: "#f97316" },
-  { label: "Fragile",       min: 0,  color: "#ef4444" },
+  { label: "Solido",        min: 90, color: "#16a34a" }, // emerald-600
+  { label: "Molto buono",   min: 80, color: "#22c55e" }, // green-500
+  { label: "Buono",         min: 70, color: "#4ade80" }, // green-400
+  { label: "Neutro",        min: 60, color: "#a3a3a3" }, // neutral-400
+  { label: "Debole",        min: 50, color: "#f59e0b" }, // amber-500
+  { label: "Molto debole",  min: 40, color: "#f97316" }, // orange-500
+  { label: "Fragile",       min: 0,  color: "#ef4444" }, // red-500
 ];
 const ALERT_LINKS = [
   { id:"ade",    label:"Agenzia delle Entrate" },
@@ -99,76 +103,40 @@ function ratio(a,b, asPercent=false){
   const r = x / y;
   return asPercent ? r*100 : r;
 }
-// normalizza valore in stringa per API (usa punto come separatore decimale)
 function toApiString(v) {
   const n = parseNum(v);
   return n == null ? "" : String(n);
 }
 
-/* ======================= Small UI + Skeletons ======================= */
-function Gauge({ value=0, color="#111", size=96, stroke=10 }) {
-  const r=(size-stroke)/2, c=2*Math.PI*r, off=c*(1-Math.max(0,Math.min(100,value))/100);
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={size/2} cy={size/2} r={r} stroke="#eee" strokeWidth={stroke} fill="none"/>
-      <circle cx={size/2} cy={size/2} r={r} stroke={color} strokeWidth={stroke} fill="none"
-        strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round"
-        transform={`rotate(-90 ${size/2} ${size/2})`} />
-      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" fontSize="16" fontWeight="700">{value}</text>
-    </svg>
-  );
-}
-const GearIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-    <path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z" stroke="currentColor" strokeWidth="1.7"/>
-    <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.4.9a7 7 0 0 0-1.7-1l-.2-2.6H11l-.2 2.6a7 7 0 0 0-1.7 1L6.7 6l-2 3.5 2 1.5a7 7 0 0 0 0 2.1l-2 1.5 2 3.5 2.4.9 2-3.5-2-1.5c.07-.33.1-.66.1-.1Z" stroke="currentColor" strokeWidth="1.2"/>
-  </svg>
-);
-const PencilIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-    <path d="M14.06 6.19l3.75 3.75L20.5 7.25a1.77 1.77 0 0 0 0-2.5l-1.25-1.25a1.77 1.77 0 0 0-2.5 0l-2.69 2.69Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-  </svg>
-);
+/* ======================= Small UI / Skeletons ======================= */
 function StatusIcon({ kind }) {
-  if (kind === "ok")
-    return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border border-teal-200 text-teal-700 bg-teal-50">✅ No</span>;
-  if (kind === "bad")
-    return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border border-rose-200 text-rose-700 bg-rose-50">❌ Sì</span>;
-  return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border border-amber-200 text-amber-700 bg-amber-50">⚠️ N/D</span>;
+  if (kind === "ok") return <Badge tone="teal">✅ No</Badge>;
+  if (kind === "bad") return <Badge tone="rose">❌ Sì</Badge>;
+  return <Badge tone="amber">⚠️ N/D</Badge>;
 }
 
 function StatusIconTwo({ kind }) {
-  if (kind === "ok")
-    return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border border-teal-200 text-teal-700 bg-teal-50">✅</span>;
-  if (kind === "bad")
-    return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border border-rose-200 text-rose-700 bg-rose-50">❌</span>;
-  return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border border-amber-200 text-amber-700 bg-amber-50">⚠️</span>;
+  if (kind === "ok") return <Badge tone="emerald" className="px-2 py-0.5"><CheckCircleIcon className="w-4 h-4 mr-0.5"/>OK</Badge>;
+  if (kind === "bad") return <Badge tone="rose" className="px-2 py-0.5"><XCircleIcon className="w-4 h-4 mr-0.5"/>Rischio</Badge>;
+  return <Badge tone="amber" className="px-2 py-0.5">⚠️ Da valutare</Badge>;
 }
 
-/* === Skeleton helpers === */
 const SkLine = ({ w="100%", h=12, className="" }) => (
-  <div className={`animate-pulse rounded ${className}`} style={{ width:w, height:h, backgroundColor:"#E5E7EB" }} />
+  <div className={`animate-pulse rounded ${className}`} style={{ width:w, height:h, backgroundColor:"#f1f5f9" }} />
 );
 const SkBadge = ({ w=120, h=28 }) => <SkLine w={w} h={h} className="rounded-full" />;
-const SkBtn = ({ w=130, h=36 }) => <SkLine w={w} h={h} className="rounded-lg" />;
+const SkBtn = ({ w=130, h=36 }) => <SkLine w={w} h={h} className="rounded-xl" />;
 const SkCircle = ({ size=96 }) => (
-  <div className="animate-pulse rounded-full" style={{ width:size, height:size, backgroundColor:"#E5E7EB" }} />
+  <div className="animate-pulse rounded-full" style={{ width:size, height:size, backgroundColor:"#f1f5f9" }} />
 );
 
-/* === Full page loader (overlay) === */
 function FullPageLoader({ show }) {
   if (!show) return null;
   return (
-    <div
-      className="fixed inset-0 z-50 bg-white/70 backdrop-blur-[1px] grid place-items-center"
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-    >
-      <div className="flex flex-col items-center gap-3">
-        <div className="h-12 w-12 rounded-full border-4 border-neutral-300 border-t-neutral-900 animate-spin" />
-        <div className="text-sm text-neutral-700">Caricamento dati bilancio…</div>
+    <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm grid place-items-center animate-fade-in" role="status">
+      <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-2xl shadow-xl">
+        <div className="h-10 w-10 border-4 border-slate-100 border-t-[#5b63ff] rounded-full animate-spin" />
+        <div className="text-sm font-semibold text-slate-700">Elaborazione bilancio in corso...</div>
       </div>
     </div>
   );
@@ -183,7 +151,7 @@ export default function AnalisiBilancioDettaglio() {
   const [recap, setRecap] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
-
+  const [toast, setToast] = useState(null); 
   const [nomeAzienda, setNomeAzienda] = useState(null);
 
   // score UI
@@ -203,24 +171,25 @@ export default function AnalisiBilancioDettaglio() {
     retrib: { debiti:"", totMensili:"", ratio:null },
     forn: { debiti:"", acquisti:"", ratio:null },
   }));
-  const [qFlags, setQFlags] = useState({}); // { "Agenzia delle Entrate": true|false|null, ... }
+  const [qFlags, setQFlags] = useState({});
 
   // Modale voci mancanti per indice
-  const [modalVoci, setModalVoci] = useState(null); // { id, nome, voci:[] }
+  const [modalVoci, setModalVoci] = useState(null);
   const [tmpVoci, setTmpVoci] = useState({});
-  const autoSaveRef = useRef(null); // debounce salvataggio immediato
+  const autoSaveRef = useRef(null);
 
-  // Modale anteprima bilancio
   const [previewOpen, setPreviewOpen] = useState(false);
-  // Modale questionario singolo
-  const [qModal, setQModal] = useState(null); // "ade"|"inps"|"risc"|"retrib"|"forn"|null
+  const [qModal, setQModal] = useState(null);
 
-  // aggiorna docId se cambia la route
   useEffect(()=>{
     const next = Number(id);
     if (next && next !== docId) setDocId(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, docId]);
+
+  function showToast(type, msg) {
+    setToast({ type, msg });
+    setTimeout(() => setToast(null), 3000);
+  }
 
   /* -------------------- Fetch via /recapBilancio -------------------- */
   useEffect(()=>{
@@ -236,33 +205,23 @@ export default function AnalisiBilancioDettaglio() {
 
         setNomeAzienda(payload?.nome_azienda ?? null);
 
-        // Score (se disponibile)
-        const maybeScore =
-          payload?.bilancioAnalisi?.Score ??
-          payload?.bilancioAnalisi?.score ??
-          null;
+        const maybeScore = payload?.bilancioAnalisi?.Score ?? payload?.bilancioAnalisi?.score ?? null;
         if (maybeScore != null) {
           const s = parseNum(maybeScore);
           if (s != null) setScore(Math.max(0, Math.min(100, Math.round(s))));
         }
 
-        // ---- mappa voci mancanti per indice ----
         const missingMap = {};
         const missSrc = payload?.bilancioAnalisi?.indiceVociMancanti || {};
-        for (const [k,v] of Object.entries(missSrc)) {
-          missingMap[normKey(k)] = v; // es. {"1":[...]} ecc.
-        }
+        for (const [k,v] of Object.entries(missSrc)) missingMap[normKey(k)] = v;
 
-        // ---- Indici Basic ----
         const rawBasic = payload?.bilancioAnalisi?.Indici?.Basic || {};
         const arr = Object.entries(rawBasic).map(([nome, val])=>{
           const id   = nomeToId(nome);
           const norm = normKey(nome);
           const missingVoci = missingMap[norm] || null;
 
-          if (val === false) {
-            return { id, nome, valore:null, fmt:"%", fuori:"N/A", missing:true, missingVoci };
-          }
+          if (val === false) return { id, nome, valore:null, fmt:"%", fuori:"N/A", missing:true, missingVoci };
           if (typeof val === "object" && val !== null) {
             const v  = parseNum(val.value);
             const fs = !!val.fuoriSoglia;
@@ -285,9 +244,7 @@ export default function AnalisiBilancioDettaglio() {
           const norm = normKey(nome);
           const missingVoci = missingMap[norm] || null;
 
-          if (val === false) {
-            return { id, nome, valore:null, fmt:"%", fuori:"N/A", missing:true, missingVoci };
-          }
+          if (val === false) return { id, nome, valore:null, fmt:"%", fuori:"N/A", missing:true, missingVoci };
           if (typeof val === "object" && val !== null) {
             const v  = parseNum(val.value);
             const fs = !!val.fuoriSoglia;
@@ -304,7 +261,6 @@ export default function AnalisiBilancioDettaglio() {
         setIndiciAdvanced(arrAdvanced);
         save(keyFor("indiciarrAdvanced", docId), arrAdvanced);
 
-        // Prefill Questionari se l’API te li rimanda (stesso naming legacy)
         const In = payload?.bilancioAnalisi?.InputData || {};
         const nextQ = { ...qData };
 
@@ -329,32 +285,40 @@ export default function AnalisiBilancioDettaglio() {
         setQData(nextQ);
         save(keyFor("q", docId), nextQ);
 
-        // Flags Questionari (true/false/null)
         setQFlags(payload?.bilancioAnalisi?.Questionari || {});
       } catch (e) {
-        console.error(e);
         if (!cancel) setLoadErr("Errore nel caricamento del bilancio.");
       } finally {
         if (!cancel) setLoading(false);
       }
     })();
     return ()=>{ cancel=true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId]);
 
-  /* -------------------- Alert sintetico basato su Questionari -------------------- */
   const alertStatus = useMemo(() => {
     const out = {};
     for (const a of ALERT_LINKS) {
       const flag = qFlags?.[Q_MAP[a.id]];
-      if (Array.isArray(flag)) out[a.id] = "ok";
-      else if (flag === false) out[a.id] = "missing";
-      else out[a.id] = "missing";
+      if (flag === false || flag == null) {
+        out[a.id] = "missing";
+      } else if (typeof flag === "object" && !Array.isArray(flag)) {
+        // The backend returns an object with `alert` (or specific key like `alertAgenziaEntrate`)
+        const val = flag.alert || flag.alertAgenziaEntrate || flag.alertINPS || flag.alertRiscossione || flag.alertRetribuzioni || flag.alertFornitori;
+        if (typeof val === "string") {
+            const v = val.toLowerCase();
+            if (v === "si" || v === "sì") out[a.id] = "bad";
+            else if (v === "no") out[a.id] = "ok";
+            else out[a.id] = "missing";
+        } else {
+            out[a.id] = "missing";
+        }
+      } else {
+        out[a.id] = "missing";
+      }
     }
     return out;
   }, [qFlags]);
 
-  /* -------------------- Salvataggio questionari -------------------- */
   const saveQuestionari = async () => {
     try {
       if (!docId) throw new Error("Documento non trovato.");
@@ -391,13 +355,11 @@ export default function AnalisiBilancioDettaglio() {
       setQData(next);
       save(keyFor("q", docId), next);
 
-      // refetch recap per aggiornare i flag Questionari (mostra overlay loader)
       try {
         setLoading(true);
         const refreshed = await postRecapBilancioById(docId);
         setQFlags(refreshed?.bilancioAnalisi?.Questionari || qFlags);
 
-        // aggiorna anche indici in caso siano cambiati
         const missSrc = refreshed?.bilancioAnalisi?.indiceVociMancanti || {};
         const mm = {};
         for (const [k,v] of Object.entries(missSrc)) mm[normKey(k)] = v;
@@ -428,15 +390,14 @@ export default function AnalisiBilancioDettaglio() {
         setLoading(false);
       }
 
-      alert("Dati salvati.");
+      showToast("success", "Dati salvati con successo.");
       setQModal(null);
     } catch (e) {
       console.error(e);
-      alert("Errore salvataggio dati.");
+      showToast("error", "Errore salvataggio dati.");
     }
   };
 
-  /* -------------------- Modale VOCI MANCANTI per indice -------------------- */
   const openVoci = (row) => {
     const voci = listMissingKeys(row?.missingVoci);
     const prefill = {};
@@ -446,16 +407,13 @@ export default function AnalisiBilancioDettaglio() {
     setModalVoci({ id: row.id, nome: row.nome, voci });
   };
 
-  // >>> NEW: salvataggio immediato (debounced) al cambio di un singolo valore
   const handleVociChange = (key, val) => {
     setTmpVoci(s => ({ ...s, [key]: val }));
     save(keyFor(`voci_${modalVoci?.id}`, docId), { ...(tmpVoci || {}), [key]: val });
-    // debounce placeholder
     if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
     autoSaveRef.current = setTimeout(()=>{}, 600);
   };
 
-  // Salva TUTTE le voci inserite (bottone "Salva valori")
   const saveVoci = async () => {
     if (!modalVoci) return;
     try {
@@ -500,356 +458,384 @@ export default function AnalisiBilancioDettaglio() {
       setIndici(arr);
       save(keyFor("indici", docId), arr);
 
+      showToast("success", "Voci salvate e indici aggiornati.");
       setModalVoci(null);
     } catch (e) {
       console.error(e);
-      alert("Errore nel salvataggio delle voci mancanti.");
+      showToast("error", "Errore nel salvataggio delle voci mancanti.");
     } finally {
       setLoading(false);
     }
   };
 
-  /* -------------------- Helpers UI -------------------- */
   const indexStatus = (r) => {
     if (r.missing || r.fuori === "N/A") return "missing";
     if (String(r.fuori).toLowerCase().startsWith("sì") || String(r.fuori).toLowerCase()==="si") return "bad";
     return "ok";
   };
   const labelsMap = recap?.bilancioAnalisi?.labels || {};
-
   const openQuestionario = (id) => setQModal(id);
 
   /* ======================= Render ======================= */
   return (
-    <div className="space-y-6">
-      {/* HERO */}
-      <section className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-        <div className="flex items-stretch gap-4">
-          <div className="shrink-0 flex items-center justify-center px-2">
-            <div className="text-center">
-              {loading ? (
-                <>
-                  <SkCircle size={96} />
-                  <div className="text-xs text-neutral-500 mt-1"><SkLine w={90} h={12} className="mx-auto" /></div>
-                </>
-              ) : (
-                <>
-                  <Gauge value={score} color={rating.color}/>
-                  <div className="text-xs text-neutral-500 mt-1">Scoring /100</div>
-                </>
-              )}
-            </div>
+    <div className="space-y-6 pb-20 font-sans min-h-screen text-slate-800 animate-fade-in-up">
+      <Link to="/analisi-bilancio" className="inline-flex items-center gap-2 text-sm text-[#5b63ff] hover:text-[#454de0] font-semibold transition-colors">
+        <ArrowRightIcon className="w-4 h-4 rotate-180" /> Torna a tutti i bilanci
+      </Link>
+      
+      {/* HERO SECTION */}
+      <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl p-6 shadow-sm ring-1 ring-slate-100 flex flex-col xl:flex-row items-center xl:items-stretch gap-6 transition-all">
+        <div className="shrink-0 flex items-center justify-center pt-2 xl:pt-0 xl:pr-6 xl:border-r border-slate-100">
+          <div className="text-center group">
+            {loading ? (
+              <>
+                <SkCircle size={140} />
+                <div className="mt-3"><SkLine w={90} h={12} className="mx-auto" /></div>
+              </>
+            ) : (
+              <Gauge value={score} color={rating.color} size={150} stroke={14} label="Scoring" subtitle="su 100" />
+            )}
           </div>
+        </div>
 
-          <div className="flex-1 rounded-xl border border-neutral-200 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-sm text-[#5b63ff] font-medium">Analisi Bilancio</div>
-                <h1 className="mt-1 text-2xl font-semibold">
-                  {loading ? <SkLine w={280} h={24} /> : <>Panoramica bilancio {nomeAzienda ? `${nomeAzienda}` : ""}</>}
-                </h1>
-                <p className="text-sm text-neutral-500">
-                  {loading ? <SkLine w={340} /> : "Punteggio calcolato su grandezze contabili e indicatori CNDC\\EC."}
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-neutral-500">{loading ? <SkLine w={60} /> : "Giudizio"}</span>
-                  {loading ? (
-                    <SkBadge w={130} />
-                  ) : (
-                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border"
-                      style={{color:rating.color, backgroundColor:rating.color+"22", borderColor:rating.color+"55"}}>
-                      <span className="w-2 h-2 rounded-full" style={{background:rating.color}}/>
-                      {rating.label}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {loading ? <SkBtn w={160} /> : (
-                  <button
-                    onClick={()=>setPreviewOpen(true)}
-                    className="h-9 px-3 rounded-lg bg-neutral-900 text-white text-sm hover:opacity-90 grid place-items-center"
-                  >
-                    Anteprima bilancio
-                  </button>
+        <div className="flex-1 w-full flex flex-col justify-center">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-[#5b63ff] font-semibold uppercase tracking-widest">Rapporto Dettagliato</div>
+              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">
+                {loading ? <SkLine w={280} h={32} /> : <>Panoramica di {nomeAzienda ? nomeAzienda : "Azienda"}</>}
+              </h1>
+              <p className="mt-2 text-sm text-slate-500 max-w-xl leading-relaxed">
+                {loading ? <SkLine w={340} /> : "Punteggio calcolato in tempo reale sulle grandezze contabili estratte, integrato con gli indicatori del Consiglio Nazionale dei Dottori Commercialisti (CNDC\\EC)."}
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-4">
+                <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">{loading ? <SkLine w={60} /> : "Giudizio finale"}</span>
+                {loading ? (
+                  <SkBadge w={130} />
+                ) : (
+                  <Pill text={rating.label} color={rating.color} className="text-base px-5 py-1.5" />
                 )}
               </div>
             </div>
 
-            {loadErr && <div className="mt-2 text-sm text-red-600">{loadErr}</div>}
+            <div className="shrink-0">
+              {loading ? <SkBtn w={160} /> : (
+                <button
+                  onClick={()=>setPreviewOpen(true)}
+                  className="h-10 px-5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 shadow-md hover:shadow-lg transition-all"
+                >
+                  Anteprima bilancio {'>'}
+                </button>
+              )}
+            </div>
           </div>
+          {loadErr && <div className="mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700 font-medium">Errore: {loadErr}</div>}
         </div>
       </section>
 
-      {/* INDICI + ALERT */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {/* Indici */}
-        <section className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between">
-            <h2 className="font-semibold">Indici</h2>
-            <div className="text-xs text-neutral-500">Mancanti: <b>{missingCount}</b></div>
-          </div>
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 text-neutral-700">
-              <tr>
-                <th className="px-3 py-3 text-left">Indici</th>
-                <th className="px-3 py-3 text-left">Valore</th>
-                <th className="px-3 py-3 text-left">Fuori soglia?</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-  Array.from({length:6}).map((_,i)=>(
-    <tr key={`sk-indici-${i}`} className="border-t border-neutral-200">
-      <td className="px-3 py-3"><SkLine w="60%" /></td>
-      <td className="px-3 py-3"><SkLine w="40%" /></td>
-      <td className="px-3 py-3"><SkBadge w={80} h={24} /></td>
-    </tr>
-  ))
-) : (
-  indici.map((r, idx, arr) => {
-    const isLast = idx === arr.length - 1;
-    const v = String(r.note ?? '');
-  
-const kind = v.includes('Azienda NON a Rischio') ? 'ok'
-            : v.includes('Azienda a Rischio')    ? 'bad'
-            : undefined;
-    return (
-      <tr key={r.id} className="border-t border-neutral-200">
-        <td className={"px-3 py-3 " + (r.missing ? "text-red-600" : "")}>{r.nome}</td>
-        <td className="px-3 py-3">
-          {!r.missing ? (
-            <span className="font-medium">
-
-                <span className="mr-2">
-
-
-{kind && <StatusIconTwo kind={kind} />}
-
-                </span>
-              {r.fmt === "%" ? fmtPerc(r.valore) : (r.fmt ? `${r.valore}${r.fmt}` : (r.note || "—"))}
-
-              
-            </span>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={()=>openVoci(r)}
-                className="px-3 py-1.5 rounded-lg border border-[#D8D2FF] bg-[#ECE8FF] text-[#5b63ff] text-xs"
-              >
-                INSERISCI VALORI MANCANTI
-              </button>
-              {r.missingVoci && (
-                <span className="text-xs text-neutral-500">
-                  ({countMissingVoci(r.missingVoci)} voci XBRL mancanti)
-                </span>
-              )}
+      {/* INDICI + ALERT GRIDS */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Indici Basic */}
+        <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm ring-1 ring-slate-100 flex flex-col">
+          <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent flex items-center justify-between">
+            <h2 className="font-bold text-slate-800 flex items-center gap-2">
+              <div className="w-1.5 h-4 bg-[#5b63ff] rounded-full"></div>
+              Indici Primari
+            </h2>
+            <div className="text-xs font-semibold text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+              Mancanti: <span className="text-rose-600 font-bold ml-1">{missingCount}</span>
             </div>
-          )}
-        </td>
-        <td className="px-3 py-3">
-          {!isLast && <StatusIcon kind={indexStatus(r)} />}
-        </td>
-      </tr>
-    );
-  })
-)}
-
-            </tbody>
-          </table>
-        </section>
-
-        {/* Alert (pilotati da Questionari) */}
-        <section className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-neutral-200">
-            <h2 className="font-semibold">Alert</h2>
           </div>
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 text-neutral-700">
-              <tr>
-                <th className="px-4 py-3 text-left">Voce</th>
-                <th className="px-4 py-3 text-left">Alert</th>
-                <th className="px-4 py-3 text-left w-[1%]">Azione</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({length:5}).map((_,i)=>(
-                  <tr key={`sk-alert-${i}`} className={i? "border-t border-neutral-200": ""}>
-                    <td className="px-4 py-3"><SkLine w="55%" /></td>
-                    <td className="px-4 py-3"><SkBadge w={70} h={24} /></td>
-                    <td className="px-4 py-3">
-                      <SkBtn w={36} h={36} />
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                ALERT_LINKS.map((a, i)=> {
-                  const s = alertStatus[a.id] || "missing";
-                  const qVal = qFlags?.[Q_MAP[a.id]];
-                  return (
-                    <tr key={a.id} className={i? "border-t border-neutral-200": ""}>
-                      <td className="px-4 py-3">{a.label}</td>
-                      <td className="px-4 py-3">
-                        <StatusIcon kind={s}/>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={()=>openQuestionario(a.id)}
-                            className="h-8 w-8 rounded-full border border-neutral-300 grid place-items-center hover:bg-neutral-50"
-                            title="Compila/Modifica questionario"
-                          >
-                            <PencilIcon/>
-                          </button>
-                          {qVal == null && (
-                            <button
-                              onClick={()=>openQuestionario(a.id)}
-                              className="px-3 py-1.5 rounded-lg border border-[#D8D2FF] bg-[#ECE8FF] text-[#5b63ff] text-xs"
-                            >
-                              COMPILA QUESTIONARIO
-                            </button>
-                          )}
-                        </div>
-                      </td>
+          <div className="overflow-x-auto flex-1">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50/50 text-slate-500 font-semibold border-b border-slate-100">
+                <tr>
+                  <th className="px-6 py-4 text-left font-semibold">Indice Analizzato</th>
+                  <th className="px-6 py-4 text-left font-semibold">Valore</th>
+                  <th className="px-6 py-4 text-left font-semibold">Fuori soglia?</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  Array.from({length:6}).map((_,i)=>(
+                    <tr key={`sk-indici-${i}`} className="hover:bg-slate-50/50">
+                      <td className="px-6 py-4"><SkLine w="70%" /></td>
+                      <td className="px-6 py-4"><SkLine w="40%" /></td>
+                      <td className="px-6 py-4"><SkBadge w={80} h={24} /></td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </section>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-1 gap-4">
-        {/* Indici Advanced */}
-        <section className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between">
-            <h2 className="font-semibold">Indici Advanced</h2> 
-          </div>
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 text-neutral-700">
-              <tr>
-                <th className="px-3 py-3 text-left">Indici</th>
-                <th className="px-3 py-3 text-left">Valore</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({length:6}).map((_,i)=>(
-                  <tr key={`sk-adv-${i}`} className="border-t border-neutral-200">
-                    <td className="px-3 py-3"><SkLine w="60%" /></td>
-                    <td className="px-3 py-3"><SkLine w="40%" /></td>
-                    <td className="px-3 py-3"><SkBadge w={80} h={24} /></td>
-                  </tr>
-                ))
-              ) : (
-                indiciAdvanced.map((r) => (
-                  <tr key={r.id} className="border-t border-neutral-200">
-                    <td className={"px-3 py-3 " + (r.missing ? "text-red-600" : "")}>{r.nome}</td>
-                    <td className="px-3 py-3">
-                      {!r.missing ? (
-                        <span className="font-medium">
-                          {r.fmt === "%" ? fmtPerc(r.valore) : (r.fmt ? `${r.valore}${r.fmt}` : (r.note || "—"))}
-                        </span>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={()=>openVoci(r)}
-                            className="px-3 py-1.5 rounded-lg border border-[#D8D2FF] bg-[#ECE8FF] text-[#5b63ff] text-xs"
-                          >
-                            INSERISCI VALORI MANCANTI
-                          </button>
-                          {r.missingVoci && (
-                            <span className="text-xs text-neutral-500">
-                              ({countMissingVoci(r.missingVoci)} voci XBRL mancanti)
+                  ))
+                ) : (
+                  indici.map((r, idx, arr) => {
+                    const isLast = idx === arr.length - 1;
+                    const v = String(r.note ?? '');
+                    const kind = v.includes('Azienda NON a Rischio') ? 'ok'
+                                : v.includes('Azienda a Rischio') ? 'bad' : undefined;
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50/80 transition-colors group">
+                        <td className={`px-6 py-4 font-medium ${r.missing ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>{r.nome}</td>
+                        <td className="px-6 py-4">
+                          {!r.missing ? (
+                            <span className="font-semibold text-slate-800 flex items-center min-h-[32px]">
+                                {kind && <span className="mr-2"><StatusIconTwo kind={kind} /></span>}
+                                {r.fmt === "%" ? fmtPerc(r.valore) : (r.fmt ? `${r.valore}${r.fmt}` : (r.note || "—"))}
                             </span>
+                          ) : (
+                            <div className="flex flex-col gap-2">
+                              <button
+                                onClick={()=>openVoci(r)}
+                                className="inline-flex max-w-[max-content] px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 transition-colors shadow-sm"
+                              >
+                                INSERISCI DATI
+                              </button>
+                              {r.missingVoci && (
+                                <span className="text-xs font-medium text-slate-400">
+                                  Richiede {countMissingVoci(r.missingVoci)} voci XBRL
+                                </span>
+                              )}
+                            </div>
                           )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-3">
-                      <StatusIconTwo kind={indexStatus(r)} />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                        </td>
+                        <td className="px-6 py-4">
+                          {!isLast && <StatusIcon kind={indexStatus(r)} />}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Questionari (Alert) */}
+        <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm ring-1 ring-slate-100 flex flex-col">
+          <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent">
+            <h2 className="font-bold text-slate-800 flex items-center gap-2">
+              <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full"></div>
+              Questionari Allerta (CNDC)
+            </h2>
+          </div>
+          <div className="overflow-x-auto flex-1">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50/50 text-slate-500 font-semibold border-b border-slate-100">
+                <tr>
+                  <th className="px-6 py-4 text-left font-semibold">Voce Questionario</th>
+                  <th className="px-6 py-4 text-left font-semibold">Stato Alert</th>
+                  <th className="px-6 py-4 text-right font-semibold">Azione</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  Array.from({length:5}).map((_,i)=>(
+                    <tr key={`sk-alert-${i}`} className="hover:bg-slate-50/50">
+                      <td className="px-6 py-4"><SkLine w="65%" /></td>
+                      <td className="px-6 py-4"><SkBadge w={70} h={24} /></td>
+                      <td className="px-6 py-4 flex justify-end"><SkBtn w={36} h={36} className="rounded-full" /></td>
+                    </tr>
+                  ))
+                ) : (
+                  ALERT_LINKS.map((a)=> {
+                    const s = alertStatus[a.id] || "missing";
+                    const qVal = qFlags?.[Q_MAP[a.id]];
+                    return (
+                      <tr key={a.id} className="hover:bg-slate-50/80 transition-colors group">
+                        <td className="px-6 py-4 font-medium text-slate-700">{a.label}</td>
+                        <td className="px-6 py-4">
+                          <StatusIcon kind={s}/>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-3">
+                            {qVal == null ? (
+                              <button
+                                onClick={()=>openQuestionario(a.id)}
+                                className="px-4 py-2 rounded-xl border border-[#D8D2FF] bg-[#ECE8FF] text-[#5b63ff] text-xs font-semibold hover:bg-[#5b63ff] hover:text-white transition-all shadow-sm whitespace-nowrap"
+                              >
+                                COMPILA ORA
+                              </button>
+                            ) : (
+                              <button
+                                onClick={()=>openQuestionario(a.id)}
+                                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all font-semibold"
+                                title="Modifica questionario"
+                              >
+                                <PencilIcon className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </section>
       </div>
 
-      {/* MODALE: valori mancanti per indice */}
-      {modalVoci && (
-        <div className="fixed inset-0 bg-black/30 z-40 grid place-items-center p-4">
-          <div className="bg-white rounded-xl border border-neutral-200 w-full max-w-3xl p-4">
-            <h3 className="font-semibold">Valori mancanti – {modalVoci.nome}</h3>
-            <p className="text-sm text-neutral-600 mt-1">
-              Inserisci i valori per le voci XBRL mancanti. Salviamo in automatico e aggiorniamo il bilancio.
-            </p>
-            <div className="mt-4 max-h-[60vh] overflow-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-neutral-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Voce</th>
-                    <th className="px-3 py-2 text-left">Chiave</th>
-                    <th className="px-3 py-2 text-left">Valore</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {modalVoci.voci.length === 0 ? (
-                    <tr><td colSpan={3} className="px-3 py-6 text-center text-neutral-500">Nessuna voce elencata.</td></tr>
-                  ) : modalVoci.voci.map(k=>(
-                    <tr key={k} className="border-t border-neutral-200">
-                      {(() => {
-                        const { base, idx } = splitCombinedKey(k);
-                        return (
-                          <td className="px-3 py-2">
-                            {labelsMap[base] || base}
-                            {idx && <span className="ml-1 text-xs text-neutral-500">_{idx}</span>}
-                          </td>
-                        );
-                      })()}
-                      <td className="px-3 py-2 text-xs text-neutral-500">{k}</td>
-                      <td className="px-3 py-2">
-                        <input
-                          className="w-full border border-neutral-300 rounded-md px-2 py-1"
-                          placeholder="es. 12345,67"
-                          onChange={e=>handleVociChange(k, e.target.value)}
-                          inputMode="decimal"
-                        />
+      <div className="grid grid-cols-1 gap-6 mt-6">
+        {/* Indici Advanced */}
+        <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm ring-1 ring-slate-100">
+          <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent">
+            <h2 className="font-bold text-slate-800 flex items-center gap-2">
+              <div className="w-1.5 h-4 bg-teal-500 rounded-full"></div>
+              Indici Avanzati (Analisi Supplementare)
+            </h2> 
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50/50 text-slate-500 font-semibold border-b border-slate-100">
+                <tr>
+                  <th className="px-6 py-4 text-left font-semibold">Indice Analizzato</th>
+                  <th className="px-6 py-4 text-left font-semibold">Valore Calcolato</th>
+                  <th className="px-6 py-4 text-left font-semibold">Fuori soglia?</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  Array.from({length:4}).map((_,i)=>(
+                    <tr key={`sk-adv-${i}`} className="hover:bg-slate-50/50">
+                      <td className="px-6 py-4"><SkLine w="50%" /></td>
+                      <td className="px-6 py-4"><SkLine w="30%" /></td>
+                      <td className="px-6 py-4"><SkBadge w={80} h={24} /></td>
+                    </tr>
+                  ))
+                ) : (
+                  indiciAdvanced.map((r) => (
+                    <tr key={r.id} className="hover:bg-slate-50/80 transition-colors group">
+                      <td className={`px-6 py-4 font-medium ${r.missing ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>{r.nome}</td>
+                      <td className="px-6 py-4">
+                        {!r.missing ? (
+                          <span className="font-semibold text-slate-800 text-base">
+                            {r.fmt === "%" ? fmtPerc(r.valore) : (r.fmt ? `${r.valore}${r.fmt}` : (r.note || "—"))}
+                          </span>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            <button
+                              onClick={()=>openVoci(r)}
+                              className="inline-flex max-w-[max-content] px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 transition-colors shadow-sm"
+                            >
+                              INSERISCI DATI
+                            </button>
+                            {r.missingVoci && (
+                              <span className="text-xs font-medium text-slate-400">
+                                Richiede {countMissingVoci(r.missingVoci)} voci XBRL
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <StatusIconTwo kind={indexStatus(r)} />
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      {/* TOAST NOTIFICATIONS */}
+      {toast && (
+        <div className={`fixed z-[100] bottom-6 right-6 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium animate-slide-up ${
+          toast.type === "success" 
+            ? "bg-emerald-50 text-emerald-800 border-emerald-200 shadow-emerald-500/10" 
+            : "bg-rose-50 text-rose-800 border-rose-200 shadow-rose-500/10"
+        }`}>
+          <div className="flex items-center gap-2">
+             <span className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+             {toast.msg}
+          </div>
+        </div>
+      )}
+
+      {/* MODALE: VALORI MANCANTI ========================================================= */}
+      {modalVoci && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 grid place-items-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-3xl flex flex-col shadow-2xl ring-1 ring-slate-100 max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100">
+              <h3 className="text-xl font-bold text-slate-800">{modalVoci.nome}</h3>
+              <p className="text-sm text-slate-500 mt-1 font-medium">
+                Digita le grandezze per le voci XBRL mancanti. I dati verranno elaborati automaticamente e l'indice verrà aggiornato.
+              </p>
+            </div>
+            
+            <div className="overflow-y-auto flex-1 p-6 bg-slate-50/50">
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Descrizione Voce</th>
+                      <th className="px-4 py-3 text-left w-1/4">ID Chiave</th>
+                      <th className="px-4 py-3 text-left w-1/3">Importo (€)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {modalVoci.voci.length === 0 ? (
+                      <tr><td colSpan={3} className="px-4 py-10 text-center font-medium text-slate-500">Nessuna voce richiesta trovata.</td></tr>
+                    ) : modalVoci.voci.map(k=>(
+                      <tr key={k} className="hover:bg-slate-50/50 transition-colors">
+                        {(() => {
+                          const { base, idx } = splitCombinedKey(k);
+                          return (
+                            <td className="px-4 py-3 font-medium text-slate-800">
+                              {labelsMap[base] || base}
+                              {idx && <span className="ml-2 px-1.5 py-0.5 rounded bg-slate-100 text-xs font-semibold text-slate-500">Vol. {idx}</span>}
+                            </td>
+                          );
+                        })()}
+                        <td className="px-4 py-3 text-xs font-mono text-slate-400">{k}</td>
+                        <td className="px-4 py-3">
+                          <input
+                            className="w-full h-9 border border-slate-200 rounded-lg px-3 py-1.5 focus:border-[#5b63ff] focus:ring-1 focus:ring-[#5b63ff] outline-none transition-all shadow-inner font-semibold text-slate-700 bg-slate-50 focus:bg-white"
+                            placeholder="0,00"
+                            onChange={e=>handleVociChange(k, e.target.value)}
+                            inputMode="decimal"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={()=>setModalVoci(null)} className="px-3 py-1.5 rounded-md border border-neutral-300 text-sm">Chiudi</button>
-              <button onClick={saveVoci} className="px-3 py-1.5 rounded-md bg-neutral-900 text-white text-sm">
-                Salva valori
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-white">
+              <button 
+                onClick={()=>setModalVoci(null)} 
+                className="h-10 px-5 rounded-xl font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+               >
+                Annulla
+              </button>
+              <button 
+                onClick={saveVoci} 
+                className="h-10 px-6 rounded-xl font-semibold bg-[#5b63ff] text-white shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5"
+              >
+                Conferma ed elabaora
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODALE: Anteprima bilancio (renderHTML) */}
+      {/* MODALE: ANTEPRIMA BILANCIO ========================================================= */}
       {previewOpen && (
-        <div className="fixed inset-0 bg-black/40 z-40 grid place-items-center p-4">
-          <div className="bg-white rounded-xl border border-neutral-200 w-full max-w-5xl h-[80vh] flex flex-col">
-            <div className="p-3 border-b border-neutral-200 flex items-center justify-between">
-              <h3 className="font-semibold">Anteprima bilancio</h3>
-              <button onClick={()=>setPreviewOpen(false)} className="px-3 py-1.5 rounded-md border border-neutral-300 text-sm">Chiudi</button>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 grid place-items-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-slate-100 w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+              <h3 className="text-xl font-bold text-slate-800">Visualizzatore Anteprima XBRL</h3>
+              <button onClick={()=>setPreviewOpen(false)} className="px-4 py-2 bg-white rounded-lg border border-slate-200 text-sm font-semibold shadow-sm hover:bg-slate-100 transition-colors">Chiudi Preview</button>
             </div>
-            <div className="flex-1 overflow-auto p-4">
+            <div className="flex-1 overflow-auto p-8 bg-[#f8fafc] content-html-preview">
               {recap?.renderHTML ? (
-                <div dangerouslySetInnerHTML={{ __html: recap.renderHTML }} />
+                <div dangerouslySetInnerHTML={{ __html: recap.renderHTML }} className="prose prose-slate max-w-none" />
               ) : (
-                <div className="text-sm text-neutral-600">
-                  Nessun contenuto HTML disponibile per il bilancio.
+                <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                  <div className="mb-4"><BarsIcon className="w-16 h-16 opacity-30"/></div>
+                  <h4 className="text-lg font-semibold text-slate-500">Anteprima VIsiva Non Disponibile</h4>
+                  <p className="text-sm mt-1">Il motore non ha restituito markup HTML per questo file.</p>
                 </div>
               )}
             </div>
@@ -857,19 +843,18 @@ const kind = v.includes('Azienda NON a Rischio') ? 'ok'
         </div>
       )}
 
-      {/* MODALE: Questionario (dinamico) */}
+      {/* MODALE: QUESTIONARI ========================================================= */}
       {qModal && (
-        <div className="fixed inset-0 bg-black/40 z-40 grid place-items-center p-4">
-          <div className="bg-white rounded-xl border border-neutral-200 w-full max-w-2xl p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Compila questionario – {Q_MAP[qModal]}</h3>
-              <button onClick={()=>setQModal(null)} className="px-3 py-1.5 rounded-md border border-neutral-300 text-sm">Chiudi</button>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 grid place-items-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-2xl flex flex-col flex-1 max-h-[90vh] shadow-2xl ring-1 ring-slate-100">
+            <div className="p-6 border-b border-slate-100">
+              <div className="text-sm font-bold text-[#f59e0b] uppercase tracking-widest mb-1">Questionario Qualitativo</div>
+              <h3 className="text-2xl font-extrabold text-slate-800">{Q_MAP[qModal]}</h3>
             </div>
-            <div className="mt-4 grid gap-3">
-              {/* ... (questionari invariati) ... */}
+            <div className="overflow-y-auto p-6 flex flex-col gap-6">
               {qModal === "ade" && (
                 <>
-                  <P>L’Agenzia delle Entrate si attiva in presenza di un debito IVA scaduto “rilevante”.</P>
+                  <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-xl text-sm font-medium text-blue-800">L’Agenzia delle Entrate si attiva in presenza di un debito IVA scaduto “rilevante”. Compila per stabilire il rischio soglia.</div>
                   <Field label="Debito IVA scaduto non versato (ultima liquidazione trimestrale)">
                     <Input money value={qData.ade.debito}
                       onChange={(v)=>{
@@ -894,16 +879,16 @@ const kind = v.includes('Azienda NON a Rischio') ? 'ok'
                     <Input money value={qData.ade.vaAnnoPrec}
                       onChange={(v)=>setQData(s=>({ ...s, ade:{...s.ade, vaAnnoPrec:v} }))}/>
                   </Field>
-                  <ReadOnly label="Debito / Volume ultima liquidazione IVA" value={
-                    qData.ade.ratio==null ? "—" : (qData.ade.ratio*100).toLocaleString("it-IT",{maximumFractionDigits:2}) + " %"
+                  <ReadOnly label="Rapporto: Debito / Volume ultima liquidazione" value={
+                    qData.ade.ratio==null ? "Dati insuff. per il calcolo" : (qData.ade.ratio*100).toLocaleString("it-IT",{maximumFractionDigits:2}) + " %"
                   } />
                 </>
               )}
 
               {qModal === "inps" && (
                 <>
-                  <P>Attivazione se non versati &gt; 6 mesi superano la metà dell’anno precedente e 50.000 €.</P>
-                  <Field label="Contributi NON versati (oltre 6 mesi)">
+                  <div className="p-4 bg-orange-50/50 border border-orange-100 rounded-xl text-sm font-medium text-orange-800">L'INPS si attiva automaticamente segnalando l'azienda qualora i debiti non pagati eccedano la metà di quelli dell'esercizio precedente e siano superiori ad euro 50.000,00.</div>
+                  <Field label="Contributi NON versati (scaduti da oltre 6 mesi)">
                     <Input money value={qData.inps.nonVersati}
                       onChange={(v)=>{
                         setQData(s=>{
@@ -913,7 +898,7 @@ const kind = v.includes('Azienda NON a Rischio') ? 'ok'
                         });
                       }}/>
                   </Field>
-                  <Field label="Totale contributi anno precedente">
+                  <Field label="Totale contributi previdenziali dichiarati e dovuti anno precedente">
                     <Input money value={qData.inps.totAnnoPrec}
                       onChange={(v)=>{
                         setQData(s=>{
@@ -923,16 +908,16 @@ const kind = v.includes('Azienda NON a Rischio') ? 'ok'
                         });
                       }}/>
                   </Field>
-                  <ReadOnly label="Non versati &gt;6m / Totale anno prec." value={
-                    qData.inps.ratio==null ? "—" : (qData.inps.ratio*100).toLocaleString("it-IT",{maximumFractionDigits:2}) + " %"
+                  <ReadOnly label="Rapporto: Non versati >6m / Totale anno prec." value={
+                    qData.inps.ratio==null ? "Dati insuff. per il calcolo" : (qData.inps.ratio*100).toLocaleString("it-IT",{maximumFractionDigits:2}) + " %"
                   } />
                 </>
               )}
 
               {qModal === "risc" && (
                 <>
-                  <P>Attivazione con crediti affidati scaduti da oltre 90 giorni, oltre soglia.</P>
-                  <Field label="Totale crediti affidati scaduti da oltre 90 giorni">
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700">L'agente della riscossione si attiva inviando la segnalazione, in presenza di crediti affidati oltre a specifici limiti dimensionali che variano proporzionalmente all'entità.</div>
+                  <Field label="Totale crediti affidati per la riscossione, autoliquidati o definitivamente accertati, scaduti da oltre 90 giorni">
                     <Input money value={qData.risc.crediti}
                       onChange={(v)=>setQData(s=>({ ...s, risc:{...s.risc, crediti:v} }))}/>
                   </Field>
@@ -941,8 +926,8 @@ const kind = v.includes('Azienda NON a Rischio') ? 'ok'
 
               {qModal === "retrib" && (
                 <>
-                  <P>Verifica presenza di debiti per retribuzioni scaduti &gt;60 giorni.</P>
-                  <Field label="Debiti retribuzioni scaduti &gt; 60 giorni">
+                  <div className="p-4 bg-emerald-50/80 border border-emerald-100 rounded-xl text-sm font-medium text-emerald-800">Si verifica una fattispecie di presunzione in base alla presenza di debiti per retribuzioni scaduti da almeno 60 giorni per un ammontare pari a oltre la metà.</div>
+                  <Field label="Ammontare dei debiti per Retribuzioni scaduti da oltre 60 giorni">
                     <Input money value={qData.retrib.debiti}
                       onChange={(v)=>{
                         setQData(s=>{
@@ -952,7 +937,7 @@ const kind = v.includes('Azienda NON a Rischio') ? 'ok'
                         });
                       }}/>
                   </Field>
-                  <Field label="Totale retribuzioni mensili">
+                  <Field label="Ammontare complessivo delle retribuzioni mensili">
                     <Input money value={qData.retrib.totMensili}
                       onChange={(v)=>{
                         setQData(s=>{
@@ -962,20 +947,20 @@ const kind = v.includes('Azienda NON a Rischio') ? 'ok'
                         });
                       }}/>
                   </Field>
-                  <ReadOnly label="Debiti / Retribuzioni mensili" value={
-                    qData.retrib.ratio==null ? "—" : (qData.retrib.ratio).toLocaleString("it-IT",{maximumFractionDigits:2}) + " %"
+                  <ReadOnly label="Rapporto: Debiti vs Retribuzioni Mensili" value={
+                    qData.retrib.ratio==null ? "Dati insuff. per il calcolo" : (qData.retrib.ratio).toLocaleString("it-IT",{maximumFractionDigits:2}) + " %"
                   } />
                 </>
               )}
 
               {qModal === "forn" && (
                 <>
-                  <P>Verifica debiti verso fornitori scaduti da più di 120 giorni.</P>
-                  <Field label="Debiti verso fornitori scaduti &gt; 120 giorni">
+                  <div className="p-4 bg-purple-50/50 border border-purple-100 rounded-xl text-sm font-medium text-purple-800">Viene valutata l'esistenza di debiti verso fornitori scaduti da oltre 120 giorni d’ammontare maggiore rispetto a quelli non scaduti.</div>
+                  <Field label="Ammontare dei debiti di fornitura scaduti da oltre 120 giorni">
                     <Input money value={qData.forn.debiti}
                       onChange={(v)=>setQData(s=>({ ...s, forn:{...s.forn, debiti:v} }))}/>
                   </Field>
-                  <Field label="Debiti verso fornitori non scaduti (facoltativo)">
+                  <Field label="Ammontare dei debiti verso fornitori non scaduti (facoltativo se debiti scaduti > 120gg sono assenti)">
                     <Input money value={qData.forn.acquisti}
                       onChange={(v)=>setQData(s=>({ ...s, forn:{...s.forn, acquisti:v} }))}/>
                   </Field>
@@ -983,66 +968,57 @@ const kind = v.includes('Azienda NON a Rischio') ? 'ok'
               )}
             </div>
 
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={()=>setQModal(null)} className="px-3 py-1.5 rounded-md border border-neutral-300 text-sm">Annulla</button>
-              <button onClick={saveQuestionari} className="px-3 py-1.5 rounded-md bg-neutral-900 text-white text-sm">
-                Salva questionario
+            <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/30">
+              <button onClick={()=>setQModal(null)} className="h-10 px-6 rounded-xl font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors">Ignora e Chiudi</button>
+              <button onClick={saveQuestionari} className="h-10 px-8 rounded-xl font-bold bg-[#1e293b] text-white shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5">
+                Salva Modifiche
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Overlay loader */}
+      {/* Overlay loader main data fetching */}
       <FullPageLoader show={loading} />
     </div>
   );
 }
 
-/* ====== tiny components ====== */
-function Card({ id, title, children, onSave }) {
-  return (
-    <section id={id} className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold">{title}</h3>
-        <button onClick={onSave} className="h-8 px-3 rounded-lg bg-neutral-900 text-white text-xs hover:opacity-90">Salva</button>
-      </div>
-      <div className="mt-3 grid gap-3">{children}</div>
-    </section>
-  );
-}
+/* ====== tiny custom form inputs ====== */
 function Field({ label, children }) {
   return (
-    <label className="block">
-      <div className="text-sm mb-1">{label}</div>
+    <div className="flex flex-col gap-1.5 w-full">
+      <label className="text-sm font-semibold text-slate-700">{label}</label>
       {children}
-    </label>
+    </div>
   );
 }
-function Input({ value, onChange, placeholder="", money=false }) {
+function Input({ value, onChange, placeholder="0,00", money=false }) {
   return (
-    <input
-      value={value ?? ""}
-      onChange={(e)=>onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full border border-neutral-300 rounded-md px-3 py-2 text-sm"
-      inputMode={money ? "decimal" : "text"}
-    />
+    <div className="relative">
+      <input
+        value={value ?? ""}
+        onChange={(e)=>onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full pl-8 pr-4 h-11 border border-slate-200 rounded-xl focus:border-[#5b63ff] focus:ring-2 focus:ring-[#5b63ff]/20 bg-slate-50 text-slate-800 font-semibold focus:bg-white outline-none transition-all"
+        inputMode={money ? "decimal" : "text"}
+      />
+      {money && <span className="absolute left-3.5 top-[11px] font-semibold text-slate-400">€</span>}
+    </div>
   );
 }
 function ReadOnly({ label, value }) {
   return (
-    <div>
-      <div className="text-sm mb-1">{label}</div>
-      <div className="border border-neutral-200 bg-neutral-50 rounded-md px-3 py-2 text-sm">
+    <div className="flex flex-col gap-1.5 w-full mt-2">
+      <div className="text-sm font-semibold text-slate-500 uppercase tracking-wide">{label}</div>
+      <div className="bg-slate-100 border border-slate-100 text-slate-800 font-bold rounded-xl px-4 py-3 leading-none shadow-inner">
         {value ?? "—"}
       </div>
     </div>
   );
 }
-function P({ children }) { return <p className="text-sm text-neutral-600">{children}</p>; }
 
-/* ====== helpers ====== */
+/* ====== pure helpers ====== */
 function nomeToId(nome) {
   return String(nome)
     .toLowerCase()
@@ -1064,13 +1040,10 @@ function countMissingVoci(miss){
   return Object.values(miss).reduce((n, v) => n + (Array.isArray(v) ? v.length : 0), 0);
 }
 function listMissingKeys(miss){
-  // Restituisce SEMPRE chiavi pronte per l’API, es. "XBRLKey_1"
   const out = [];
   if (!miss) return out;
-
   for (const bucket of Object.values(miss)) {
     if (!Array.isArray(bucket)) continue;
-
     for (const item of bucket) {
       if (Array.isArray(item) && item.length >= 2) {
         const [key, idx] = item;
@@ -1085,7 +1058,6 @@ function listMissingKeys(miss){
   }
   return out;
 }
-
 function splitCombinedKey(k){
   const m = String(k).match(/^(.*)_(\d+)$/);
   return m ? { base: m[1], idx: m[2] } : { base: String(k), idx: null };
