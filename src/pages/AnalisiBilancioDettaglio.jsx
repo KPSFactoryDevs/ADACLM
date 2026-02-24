@@ -7,7 +7,7 @@ import { Pill } from "../components/ui/Pill";
 import { PencilIcon, ArrowRightIcon, CheckCircleIcon, XCircleIcon } from "../components/ui/Icons";
 
 /* ======================= Config & API ======================= */
-const API_BASE = "https://ada-stage.compaynet-b2b.com/api";
+const API_BASE = "http://127.0.0.1:8000/api";
 
 function getAuth() {
   try {

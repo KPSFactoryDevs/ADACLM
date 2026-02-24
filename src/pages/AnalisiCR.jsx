@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 /* ================== MINI API ================== */
-const API_BASE =  "https://ada-stage.compaynet-b2b.com/api";
+const API_BASE =  "http://127.0.0.1:8000/api";
 
 function getToken() {
   try { return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; } catch { return null; }
