@@ -1,10 +1,34 @@
 // src/pages/Dashboard.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Gauge } from "../components/ui/Gauge";
 import { Pill } from "../components/ui/Pill";
 import { Sparkline } from "../components/ui/Sparkline";
 import { AlertIcon, TrendIcon, BarsIcon, BriefcaseIcon, BuildingIcon, CrIcon, ShieldIcon, ArrowRightIcon } from "../components/ui/Icons";
+
+/* ---------------- API UTILS ---------------- */
+const API_BASE = "http://127.0.0.1:8000/api";
+
+function getToken() {
+  try { return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; }
+  catch { return null; }
+}
+
+function getUserId() {
+  try {
+    const userStr = localStorage.getItem("sb_user");
+    if (!userStr) return null;
+    const u = JSON.parse(userStr);
+    return u?.id || null;
+  } catch {
+    return null;
+  }
+}
+
+function getCurrentCompanyId() {
+  try { return JSON.parse(localStorage.getItem("sb_company"))?.id || null; }
+  catch { return null; }
+}
 
 /* ---------------- MOCK ---------------- */
 // trend (0-100)
@@ -12,37 +36,15 @@ const TREND_CR = [62, 64, 61, 59, 66, 68, 71, 70, 69, 72, 74, 73];
 const TREND_BILANCIO = [70, 72, 71, 69, 68, 70, 72, 73, 75, 76, 78, 80];
 // saldi conti
 const CONTI = [1450.45, 218.96, 0.05, 300.0];
-// questionari
-const QUESTIONARI = { asIs: 68, toBe: 78 };
-// scala giudizi
-const SCALE = [
-  { label: "Solida",        min: 90, color: "#16a34a" },
-  { label: "Molto buona",   min: 80, color: "#22c55e" },
-  { label: "Buona",         min: 70, color: "#4ade80" },
-  { label: "Neutra",        min: 60, color: "#a3a3a3" },
-  { label: "Debole",        min: 50, color: "#f59e0b" },
-  { label: "Molto debole",  min: 40, color: "#f97316" },
-  { label: "Fragile",       min: 0,  color: "#ef4444" },
-];
-
-/* ===== Analisi per area (mock) ===== */
-const AREA_RESULTS = [
-  { id: "com",  label: "Minacce rapporti commerciali",      result: "Solidità" },
-  { id: "org",  label: "Minacce gestione aziendale",        result: "Solidità" },
-  { id: "evt",  label: "Minacce da eventi pregiudizievoli", result: "Solidità" },
-  { id: "tax",  label: "Minacce erariali e rischi",         result: "Solidità" },
-  { id: "asis", label: "Profilo rischio AS IS",             result: "Fragilità" },
-  { id: "tobe", label: "Questionario TO BE",                result: "Stabilità" },
-];
+// scala giudizi (no longer used directly by classification but kept as reference if needed)
 
 function resultColor(result) {
-  switch ((result || "").toLowerCase()) {
-    case "solidità":  return "#16a34a"; // emerald-600
-    case "stabilità": return "#14b8a6"; // teal-500
-    case "alert":     return "#f59e0b"; // amber-500
-    case "fragilità": return "#ef4444"; // red-500
-    default:          return "#64748b"; // slate-500
-  }
+  const s = (result || "").toLowerCase();
+  if (s.includes("solidit") || s.includes("ottim") || s.includes("miglior")) return "#16a34a"; // emerald-600
+  if (s.includes("stabilit") || s.includes("buon")) return "#14b8a6"; // teal-500
+  if (s.includes("alert") || s.includes("debole") || s.includes("critic")) return "#f59e0b"; // amber-500
+  if (s.includes("fragil") || s.includes("peggiora") || s.includes("risch")) return "#ef4444"; // red-500
+  return "#64748b"; // slate-500
 }
 
 function ResultPill({ result }) {
@@ -77,12 +79,6 @@ const CR_ISTITUTI = [
 function fmtMoney(v) {
   return Number(v || 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 }
-function classify(score) { 
-  for (const s of SCALE) if (score >= s.min) return s; 
-  return SCALE.at(-1); 
-}
-function computeAllertaScore({ bilancio, cr, toBe }) { return Math.round(0.4*bilancio + 0.4*cr + 0.2*toBe); }
-
 /* Icone per "Vai a" */
 const IconCircle = ({ children }) => (
   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7e85ff] to-[#5b63ff] text-white flex items-center justify-center shadow-md">
@@ -96,25 +92,223 @@ export default function Dashboard() {
     catch { return { name: "Utente" }; }
   });
 
-  const scoreCR  = TREND_CR.at(-1);
-  const scoreBil = TREND_BILANCIO.at(-1);
-  const allertaScore = computeAllertaScore({ bilancio: scoreBil, cr: scoreCR, toBe: QUESTIONARI.toBe });
-  
-  const allerta = classify(allertaScore);
-  const crClass = classify(scoreCR);
-  const bilClass = classify(scoreBil);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+  const [noDefault, setNoDefault] = useState(false);
+
+  useEffect(() => {
+    async function loadDashboard() {
+      try {
+        const token = getToken();
+        if (!token) throw new Error("No auth token");
+
+        const headers = { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        };
+        
+        const companyId = getCurrentCompanyId();
+        if (companyId) {
+          headers["CurrentCompany"] = companyId;
+        }
+
+        const [rBil, rCr] = await Promise.all([
+          fetch(`${API_BASE}/getBilanciDocuments`, { headers }),
+          fetch(`${API_BASE}/getCrDocuments`, { headers })
+        ]);
+
+        if (!rBil.ok || !rCr.ok) throw new Error("Failed to fetch documents");
+
+        const bilData = await rBil.json();
+        const crData = await rCr.json();
+
+        // Extract list of documents
+        let blist = Array.isArray(bilData) ? bilData : (bilData?.data ?? []);
+        if (Array.isArray(blist)) blist = blist.flat(Infinity);
+        else blist = [];
+        
+        let clist = Array.isArray(crData) ? crData : (crData?.data ?? []);
+        if (Array.isArray(clist)) clist = clist.flat(Infinity);
+        else clist = [];
+
+        // Filter specifically for "bilancio" and "centrale rischi" types to prevent mismatch
+        const defBilancio = blist.find(b => 
+          (b.predefinito == true || b.predefinito === 1 || b.predefinito === "1") && 
+          String(b.type || "").toLowerCase() === "bilancio"
+        );
+        const defCr = clist.find(c => 
+          (c.predefinito == true || c.predefinito === 1 || c.predefinito === "1") && 
+          (String(c.type || "").toLowerCase() === "centrale rischi" || String(c.type || "").toLowerCase() === "cr")
+        );
+
+        console.log(defCr)
+        if (!defBilancio || !defCr) {
+          setNoDefault(true);
+          setLoading(false);
+          return;
+        }
+
+        const userId = getUserId();
+        if (!userId) {
+          setNoDefault(true);
+          setLoading(false);
+          return;
+        }
+
+        const crId = defCr.codice_documento || defCr.id;
+        const resAllerta = await fetch(`${API_BASE}/generalAllerta/${defBilancio.id}/${crId}/${userId}`, { headers });
+        console.log(userId)
+        if (!resAllerta.ok) {
+           const errText = await resAllerta.text();
+           console.error("GeneralAllerta API error:", resAllerta.status, errText);
+           throw new Error("L'analisi del sistema di allerta non è ancora completa (" + resAllerta.status + ").");
+        }
+
+        const allertaResult = JSON.parse(await resAllerta.text());
+        if (allertaResult.error) {
+           throw new Error(allertaResult.message || "Errore sconosciuto during allerta computation");
+        }
+
+        setData({ ...allertaResult, bilancioId: defBilancio.id, crId: crId });
+      } catch (err) {
+        console.error("Dashboard failed to load analysis:", err);
+        setNoDefault(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDashboard();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[80vh] text-slate-500">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-[#5b63ff] rounded-full animate-spin mb-4"></div>
+        <p className="font-medium animate-pulse">Analisi in corso...</p>
+      </div>
+    );
+  }
+
+  if (noDefault || !data || data.error) {
+    return (
+      <div className="space-y-6 pb-12 font-sans bg-slate-50 min-h-screen text-slate-800">
+        <div className="flex flex-col mb-10">
+          <div className="text-sm text-[#5b63ff] tracking-wide font-semibold uppercase">Workspace</div>
+          <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">
+            Bentornato, {user?.name}
+          </h1> 
+          <p className="mt-1 text-slate-500">È richiesta un'azione per sbloccare la dashboard.</p>
+        </div>
+
+        <section className="bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200/60 p-10 text-center shadow-sm ring-1 ring-slate-100 flex flex-col items-center justify-center">
+            <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-6 shadow-sm">
+               <AlertIcon className="w-10 h-10" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">Nessun documento predefinito impostato</h2>
+            <p className="text-slate-500 max-w-md mx-auto mb-8 leading-relaxed">
+              Per attivare il sistema di allerta e visualizzare le analisi intelligenti, è necessario impostare 
+              sia un <strong>Bilancio</strong> sia una <strong>Centrale Rischi</strong> come "Predefinito".
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link to="/analisi-bilancio" className="h-11 px-6 bg-white border border-slate-200 shadow-sm text-slate-700 font-semibold rounded-xl flex items-center gap-2 hover:bg-slate-50 hover:border-slate-300 transition-all">
+                <BarsIcon className="w-5 h-5 text-slate-400" />
+                Vai ai Bilanci
+              </Link>
+              <Link to="/analisi-cr" className="h-11 px-6 bg-white border border-slate-200 shadow-sm text-slate-700 font-semibold rounded-xl flex items-center gap-2 hover:bg-slate-50 hover:border-slate-300 transition-all">
+                <CrIcon className="w-5 h-5 text-slate-400" />
+                Vai a Centrale Rischi
+              </Link>
+            </div>
+        </section>
+      </div>
+    );
+  }
+
+  // Estrazione dati dinamici
+  const finalScoreWord = data.pageData?.FinalScore || "N/A";
+
+  function getScoreColor(w) {
+    const s = w.toLowerCase();
+    if (s.includes("ottimo") || s.includes("solida")) return "#16a34a"; 
+    if (s.includes("buon")) return "#4ade80";
+    if (s.includes("critic") || s.includes("debole")) return "#f59e0b";
+    if (s.includes("elevato") || s.includes("rischio") || s.includes("fragil")) return "#ef4444";
+    return "#64748b";
+  }
+
+  function getScoreValue(w) {
+    const s = w.toLowerCase();
+    if (s.includes("ottimo") || s.includes("solida")) return 100;
+    if (s.includes("buon")) return 75;
+    if (s.includes("critic") || s.includes("debole")) return 40;
+    if (s.includes("elevato") || s.includes("rischio") || s.includes("fragil")) return 10;
+    return 0;
+  }
+
+  const allertaColor = getScoreColor(finalScoreWord);
+  const allertaNum = getScoreValue(finalScoreWord);
+
+  const downloadReport = async () => {
+    if (!data?.bilancioId || !data?.crId) {
+      alert("Dati non sufficienti per generare il report.");
+      return;
+    }
+    try {
+      const token = getToken();
+      const headers = { "Authorization": `Bearer ${token}` };
+      const companyId = getCurrentCompanyId();
+      if (companyId) headers["CurrentCompany"] = companyId;
+
+      const res = await fetch(`${API_BASE}/reportAllerta/${data.bilancioId}/${data.crId}`, { headers });
+      if (!res.ok) throw new Error("Errore API");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Report_Allerta.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      console.error(err);
+      alert("Errore durante la generazione del PDF");
+    }
+  };
+
+  const crGiudizio = data.GeneralScore?.['Giudizio Centrale Rischi'] || "N/A";
+  const bilancioGiudizio = data.GeneralScore?.['Giudizio_Bilancio'] || "N/A";
+  const asIsGiudizio = data.GeneralScore?.['Profilo rischio AS IS'] || "N/A";
+
+  const areaResults = [
+    { id: "com",  label: "Minacce rapporti commerciali",      result: data?.GeneralScore?.['Minacce rapporti commerciali'] || "N/A" },
+    { id: "org",  label: "Minacce gestione aziendale",        result: data?.GeneralScore?.['Minacce gestione aziendale'] || "N/A" },
+    { id: "evt",  label: "Minacce da eventi pregiudizievoli", result: data?.GeneralScore?.['Minacce da eventi pregiudizievoli'] || "N/A" },
+    { id: "tax",  label: "Minacce erariali e rischi",         result: data?.GeneralScore?.['Minacce erariali e rischi caratteristici'] || "N/A" },
+    { id: "asis", label: "Profilo rischio AS IS",             result: asIsGiudizio },
+    { id: "tobe", label: "Questionario TO BE",                result: data?.GeneralScore?.['Questionario TO BE'] || "N/A" },
+  ];
 
   return (
     <div className="space-y-6 pb-12 font-sans bg-slate-50 min-h-screen text-slate-800">
       {/* Header benvenuto */}
       <div className="flex items-start justify-between">
         <div className="animate-fade-in-up">
-          <div className="text-sm text-[#5b63ff] tracking-wide font-semibold uppercase">Workspace</div>
+          <div className="text-sm text-[#5b63ff] tracking-wide font-semibold uppercase print:hidden">Workspace</div>
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">
             Bentornato, {user?.name}
           </h1> 
-          <p className="mt-1 text-slate-500">Ecco un riepilogo della situazione finanziaria aggiornata ad oggi.</p>
+          <p className="mt-1 text-slate-500 print:hidden">Ecco un riepilogo della situazione finanziaria aggiornata ad oggi.</p>
         </div>
+        <button
+          onClick={downloadReport}
+          className="h-10 px-5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 shadow-md hover:shadow-lg transition-all flex items-center gap-2 print:hidden shrink-0"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+          </svg>
+          Stampa Relazione
+        </button>
       </div>
 
       {/* RIGA 1 — Allerta Principale */}
@@ -124,7 +318,7 @@ export default function Dashboard() {
             <div className="text-sm font-semibold text-slate-500 uppercase tracking-widest">Giudizio Allerta Globale</div>
             <div className="mt-2 flex items-center gap-3">
               <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600">Stato Complessivo</h2>
-              <Pill text={allerta.label} color={allerta.color} className="text-sm shadow-sm" />
+              <Pill text={finalScoreWord} color={allertaColor} className="text-sm shadow-sm" />
             </div>
             <p className="text-sm text-slate-500 mt-2 leading-relaxed max-w-lg">
               Basato su algoritmi proprietari che analizzano l'ultimo bilancio depositato, 
@@ -132,24 +326,34 @@ export default function Dashboard() {
             </p>
             
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                { label: "Bilancio", score: scoreBil, css: bilClass },
-                { label: "Centrale Rischi", score: scoreCR, css: crClass },
-                { label: "Questionari", score: scoreCR, css: crClass }
-              ].map((item, i) => (
-                <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
-                  <div className="text-xs font-semibold text-slate-500">{item.label}</div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="text-xl font-bold text-slate-800" style={{ color: item.css.color }}>{item.score}/100</div>
-                    <Pill text={item.css.label} color={item.css.color} />
-                  </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
+                <div className="text-xs font-semibold text-slate-500">Valutazione Bilancio</div>
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="text-lg font-bold text-slate-800">{bilancioGiudizio}</div>
+                  <ResultPill result={bilancioGiudizio} />
                 </div>
-              ))}
+              </div>
+              
+              <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
+                <div className="text-xs font-semibold text-slate-500">Centrale Rischi</div>
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="text-lg font-bold text-slate-800">{crGiudizio}</div>
+                  <ResultPill result={crGiudizio} />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
+                <div className="text-xs font-semibold text-slate-500">Profilo Rischio AS IS</div>
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="text-lg font-bold text-slate-800">{asIsGiudizio}</div>
+                  <ResultPill result={asIsGiudizio} />
+                </div>
+              </div>
             </div>
           </div>
           
           <div className="shrink-0 flex items-center justify-center p-6 rounded-2xl bg-gradient-to-b from-slate-50 to-white border border-slate-100 shadow-inner">
-            <Gauge value={allertaScore} color={allerta.color} size={140} stroke={12} label="Score Globale" />
+            <Gauge value={allertaNum} textValue={finalScoreWord} color={allertaColor} size={140} stroke={12} label="Score Globale" />
           </div>
         </div>
       </section>
@@ -163,7 +367,7 @@ export default function Dashboard() {
           </h2>
         </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {AREA_RESULTS.map((a, i) => (
+          {areaResults.map((a, i) => (
             <div
               key={a.id}
               className="group rounded-xl border border-slate-100 px-4 py-4 flex items-center justify-between bg-white hover:bg-slate-50 hover:border-slate-300 transition-all duration-300 shadow-sm cursor-default"
@@ -184,34 +388,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* RIGA 2 — Trend Grafici ==================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <section className="bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200/60 p-6 shadow-sm ring-1 ring-slate-100 transition-shadow hover:shadow-md">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-sm font-semibold text-slate-500 uppercase">Trend Bilancio</div>
-              <div className="mt-1 text-2xl font-bold text-slate-800">{TREND_BILANCIO.length} Mesi <span className="text-sm font-normal text-slate-400">di storico</span></div>
-            </div>
-            <Pill text={bilClass.label} color={bilClass.color} />
-          </div>
-          <div className="mt-6 h-[80px]">
-            <Sparkline data={TREND_BILANCIO} color={bilClass.color} height={80} strokeWidth={3} />
-          </div>
-        </section>
-
-        <section className="bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200/60 p-6 shadow-sm ring-1 ring-slate-100 transition-shadow hover:shadow-md">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-sm font-semibold text-slate-500 uppercase">Trend Centrale Rischi</div>
-              <div className="mt-1 text-2xl font-bold text-slate-800">{TREND_CR.length} Mesi <span className="text-sm font-normal text-slate-400">di storico</span></div>
-            </div>
-            <Pill text={crClass.label} color={crClass.color} />
-          </div>
-          <div className="mt-6 h-[80px]">
-            <Sparkline data={TREND_CR} color={crClass.color} height={80} strokeWidth={3} />
-          </div>
-        </section>
-      </div>
+   
 
       {/* RIGA 3 — Navigation Cards ================================= */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -262,54 +439,6 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* RIGA 4 — Tabelle istituti & banche ========================== */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-sm ring-1 ring-slate-100">
-        <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent flex items-center gap-2">
-            <div className="w-1.5 h-4 bg-[#5b63ff] rounded-full"></div>
-            <h3 className="font-bold text-slate-800">Istituti di credito <span className="text-slate-400 font-normal ml-1">(da Centrale Rischi)</span></h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50/50 text-slate-500 font-semibold border-b border-slate-100">
-              <tr>
-                <th className="px-6 py-4 text-left font-semibold">Istituto</th>
-                <th className="px-6 py-4 text-left whitespace-nowrap font-semibold">Ultimo periodo</th>
-                <th className="px-6 py-4 text-right font-semibold">Esposizione</th>
-                <th className="px-6 py-4 text-center font-semibold">Posizioni</th>
-                <th className="px-6 py-4 text-left font-semibold">Stato</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {CR_ISTITUTI.map((b) => (
-                <tr key={b.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-4 font-medium text-slate-800">{b.name}</td>
-                  <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{b.last}</td>
-                  <td className="px-6 py-4 text-right tabular-nums font-semibold text-slate-700">{fmtMoney(b.exposure)}</td>
-                  <td className="px-6 py-4 text-center text-slate-500 font-medium">
-                    <span className="bg-slate-100 px-2 py-1 rounded-md">{b.positions}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-sm transition-transform duration-300 group-hover:scale-105 ${
-                      b.status === "Attivo"
-                        ? "bg-teal-50 text-teal-700 border border-teal-200/60 ring-1 ring-teal-500/10"
-                        : b.status === "In calo"
-                        ? "bg-amber-50 text-amber-700 border border-amber-200/60 ring-1 ring-amber-500/10"
-                        : "bg-slate-50 text-slate-600 border border-slate-200/60 ring-1 ring-slate-900/5"
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        b.status === 'Attivo' ? 'bg-teal-500 shadow-[0_0_4px_#14b8a6]' :
-                        b.status === 'In calo' ? 'bg-amber-500 shadow-[0_0_4px_#f59e0b]' :
-                        'bg-slate-400'
-                      }`} />
-                      {b.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
     </div>
   );
 }

@@ -60,7 +60,18 @@ const Bilanci = {
   async getSettori() {
     return api("/getSettori", { method: "GET", auth: false });
   },
+  async setPredefinito(id) {
+    return api(`/bilancio/${id}/predefinito`, { method: "PUT" });
+  },
 };
+
+function StarIcon({ className, solid }) {
+  return (
+    <svg className={className} fill={solid ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={solid ? 0 : 2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+    </svg>
+  );
+}
 
 /* ======================= COMPONENTE PRINCIPALE ======================= */
 
@@ -160,9 +171,22 @@ export default function AnalisiBilancio() {
           stato,
           uploadedAt: formatDateTime(d.created_at),
           size: d.sizeReadable || "—",
+          predefinito: d.predefinito || false,
           raw: d,
         };
       });
+  }
+
+  async function toggleDefault(id, current) {
+    if (current) return;
+    try {
+      await Bilanci.setPredefinito(id);
+      showToast("success", "Bilancio impostato come predefinito.");
+      const refreshed = await Bilanci.listDocuments();
+      setRows(mapDocumentsToRows(refreshed));
+    } catch(e) {
+      showToast("error", e.message || "Errore");
+    }
   }
 
   function formatDateTime(dt) {
@@ -273,7 +297,16 @@ export default function AnalisiBilancio() {
               ) : (
                 filtered.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50/80 transition-colors group">
-                    <Td className="font-semibold text-slate-800">{r.azienda}</Td>
+                    <Td className="font-semibold text-slate-800">
+                      <div className="flex items-center gap-2">
+                        {r.azienda}
+                        {r.predefinito && (
+                          <span title="Bilancio Predefinito" className="text-amber-500">
+                            <StarIcon className="w-4 h-4" solid={true} />
+                          </span>
+                        )}
+                      </div>
+                    </Td>
                     <Td className="whitespace-nowrap font-medium text-slate-600">
                       {r.esercizio}
                       {r.periodo && r.periodo !== String(r.esercizio) && (
@@ -302,6 +335,13 @@ export default function AnalisiBilancio() {
                           onClick={() => window.open(r.raw?.path || "#", "_blank")}
                         >
                           <DownloadIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${r.predefinito ? "text-amber-500 bg-amber-50" : "text-slate-400 bg-slate-100 hover:bg-slate-200 hover:text-amber-500"}`}
+                          title={r.predefinito ? "Predefinito" : "Imposta come Predefinito"}
+                          onClick={() => toggleDefault(r.id, r.predefinito)}
+                        >
+                          <StarIcon className="w-4 h-4" solid={r.predefinito} />
                         </button>
                         <button
                           className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors"

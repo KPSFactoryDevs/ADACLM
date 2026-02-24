@@ -171,9 +171,6 @@ const LS_ASIS_DETAILS = "sb_allerta_as_is_details"; // dettagli: { [key]: "..." 
 const LS_TOBE = "sb_allerta_to_be";                 // risposte: { [id]: 1|2|3 }
 const LS_SAVED_AT = "sb_allerta_saved_at";
 
-const load = (k, def) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } };
-const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
-
 /** ---------- Backend helpers ---------- */
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000").replace(/\/$/, "");
 function getToken(){ try{ return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; }catch{ return null; } }
@@ -184,47 +181,71 @@ async function apiPost(path, body){
   if (t) headers["Authorization"] = `Bearer ${t}`;
   if (cid) headers["CurrentCompany"] = cid;
   const res = await fetch(`${API_BASE}${path}`, { method:"POST", headers, body: JSON.stringify(body) });
-  let data=null; try{ data=await res.json(); }catch{}
+  let data=null; try{ data=await res.json(); }catch(e){ console.error(e); }
+  if(!res.ok) throw new Error((data && data.message) || `${res.status} ${res.statusText}`);
+  return data;
+}
+
+async function apiGet(path){
+  const headers = { Accept:"application/json" };
+  const t=getToken(); const cid=getCompanyId();
+  if (t) headers["Authorization"] = `Bearer ${t}`;
+  if (cid) headers["CurrentCompany"] = cid;
+  const res = await fetch(`${API_BASE}${path}`, { method:"GET", headers });
+  let data=null; try{ data=await res.json(); }catch(e){ console.error(e); }
   if(!res.ok) throw new Error((data && data.message) || `${res.status} ${res.statusText}`);
   return data;
 }
 
 /** ---------- Pagina ---------- */
-export default function Allerta(props){
+export default function Allerta(){
   // stato locale
-  const [asIs, setAsIs] = useState(()=>load(LS_ASIS, {}));                 // "Si"/"No"
-  const [asIsDetails, setAsIsDetails] = useState(()=>load(LS_ASIS_DETAILS, {}));
-  const [toBe, setToBe] = useState(()=>load(LS_TOBE, {}));                 // 1/2/3
+  const [asIs, setAsIs] = useState({});                 // "Si"/"No"
+  const [asIsDetails, setAsIsDetails] = useState({});
+  const [toBe, setToBe] = useState({});                 // 1/2/3
   const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState(()=>load(LS_SAVED_AT, null));
+  const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState(null); // {type:'ok'|'err', msg}
 
-  useEffect(()=>save(LS_ASIS, asIs), [asIs]);
-  useEffect(()=>save(LS_ASIS_DETAILS, asIsDetails), [asIsDetails]);
-  useEffect(()=>save(LS_TOBE, toBe), [toBe]);
+  const show = (type,msg)=>{ setNotice({type,msg}); setTimeout(()=>setNotice(null), 2400); };
 
-  // ids da props o query
-  const qp = new URLSearchParams(location.search);
-  const balanceId = props.balanceId ?? qp.get("balanceId") ?? null;
-  const documentId = props.documentId ?? qp.get("documentId") ?? null;
+  useEffect(() => {
+    const fetchQ = async () => {
+       try {
+         const data = await apiGet(`/api/questionari`);
+         if (data && !data.error) {
+           let newAsIs = {};
+           let newAsIsDet = {};
+           if (data.asIs) {
+             for (const key in data.asIs) {
+               if (data.asIs[key].Result) newAsIs[key] = data.asIs[key].Result;
+               if (data.asIs[key].Details) newAsIsDet[key] = data.asIs[key].Details;
+             }
+           }
+           setAsIs(newAsIs);
+           setAsIsDetails(newAsIsDet);
+           
+           let newToBe = {};
+           if (data.toBe) {
+             for (const key in data.toBe) {
+               if (data.toBe[key]) newToBe[key] = data.toBe[key];
+             }
+           }
+           setToBe(newToBe);
+         }
+       } catch (e) {
+         console.error("Errore fetch questionari", e);
+       } finally {
+         setLoading(false);
+       }
+    };
+    fetchQ();
+  }, []);
 
   const asIsCount = useMemo(()=> ASIS_QUESTIONS.reduce((n,q)=>n + (asIs[q.key]==="Si" || asIs[q.key]==="No" ? 1:0), 0), [asIs]);
   const toBeCount = useMemo(()=> TO_BE_QUESTIONS.reduce((n,q)=>n + (toBe[q.id] ? 1:0), 0), [toBe]);
 
-  const saveLocal = async ()=>{
-    setSaving(true);
-    await new Promise(r=>setTimeout(r, 300));
-    const when = new Date().toISOString();
-    setSavedAt(when); save(LS_SAVED_AT, when);
-    setSaving(false);
-    show("ok","Bozza salvata in locale.");
-  };
-
-  const show = (type,msg)=>{ setNotice({type,msg}); setTimeout(()=>setNotice(null), 2400); };
-
-  // invio AS IS
   const sendAsIs = async ()=>{
-    if(!balanceId || !documentId){ show("err","Mancano balanceId o documentId."); return; }
     try{
       setSaving(true);
       const questionario = {};
@@ -234,12 +255,8 @@ export default function Allerta(props){
           details: asIsDetails[q.key] ?? "",
         };
       }
-      await apiPost("/api/questionarioAsis", {
-        bilancio_id: balanceId,
-        document_id: documentId,
-        questionario,
-      });
-      show("ok","Questionario AS IS inviato.");
+      await apiPost("/api/questionarioAsis", { questionario });
+      show("ok","Questionario AS IS inviato e salvato a DB.");
     }catch(e){
       show("err", e.message || "Errore invio AS IS.");
     }finally{ setSaving(false); }
@@ -247,19 +264,14 @@ export default function Allerta(props){
 
   // invio TO BE
   const sendToBe = async ()=>{
-    if(!balanceId || !documentId){ show("err","Mancano balanceId o documentId."); return; }
     try{
       setSaving(true);
       const forwardlooking = {};
       for(const q of TO_BE_QUESTIONS){
         forwardlooking[q.id] = toBe[q.id] ?? null;
       }
-      await apiPost("/api/forwardlooking", {
-        bilancio_id: balanceId,
-        document_id: documentId,
-        forwardlooking,
-      });
-      show("ok","Questionario TO BE inviato.");
+      await apiPost("/api/forwardlooking", { forwardlooking });
+      show("ok","Questionario TO BE inviato e salvato a DB.");
     }catch(e){
       show("err", e.message || "Errore invio TO BE.");
     }finally{ setSaving(false); }
@@ -273,12 +285,8 @@ export default function Allerta(props){
           <div className="text-sm text-[#5b63ff] font-medium">Allerta</div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Questionari</h1>
           <p className="text-sm text-neutral-500">
-            Compila i questionari <b>AS IS</b> e <b>TO BE</b>. Puoi salvare in locale o inviare al backend.
+            Compila i questionari <b>AS IS</b> e <b>TO BE</b> per il tuo utente.
           </p>
-          <div className="mt-2 text-xs text-neutral-500">
-            BalanceID: <b>{balanceId ?? "—"}</b> · DocumentID: <b>{documentId ?? "—"}</b>
-          </div>
-          {savedAt && <div className="mt-1 text-xs text-neutral-500">Ultimo salvataggio locale: {fmt(savedAt)}</div>}
           {notice && (
             <div className={`mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs border ${
               notice.type==="ok" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
@@ -289,15 +297,15 @@ export default function Allerta(props){
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <button onClick={saveLocal} disabled={saving} className="h-9 px-3 rounded-lg bg-neutral-900 text-white text-sm hover:opacity-90 disabled:opacity-60 flex items-center gap-2">
-            <SaveIcon /> {saving ? "…" : "Salva (locale)"}
-          </button>
-          <button onClick={sendAsIs} disabled={saving} className="h-9 px-3 rounded-lg text-sm border border-neutral-300 hover:bg-neutral-50">Invia AS IS</button>
-          <button onClick={sendToBe} disabled={saving} className="h-9 px-3 rounded-lg text-sm border border-neutral-300 hover:bg-neutral-50">Invia TO BE</button>
+          <button onClick={sendAsIs} disabled={saving} className="h-9 px-3 rounded-lg text-sm border border-neutral-300 hover:bg-neutral-50">Salva AS IS a DB</button>
+          <button onClick={sendToBe} disabled={saving} className="h-9 px-3 rounded-lg text-sm border border-neutral-300 hover:bg-neutral-50">Salva TO BE a DB</button>
         </div>
       </div>
 
       {/* Layout: 2 colonne */}
+      {loading ? (
+        <div className="text-sm text-neutral-500 py-10 text-center">Caricamento questionari...</div>
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-3">
         {/* AS IS */}
         <section className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
@@ -399,6 +407,7 @@ export default function Allerta(props){
           </div>
         </section>
       </div>
+      )}
     </div>
   );
 }
@@ -461,7 +470,6 @@ function QuickBtn({ children, onClick, ghost=false, size="md" }) {
 function SaveIcon(){ return (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 7h10l4 4v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7Z" stroke="currentColor" strokeWidth="1.6"/><path d="M9 7v4h6V7" stroke="currentColor" strokeWidth="1.6"/></svg>
 ); }
-function fmt(iso){ try{ return new Date(iso).toLocaleString("it-IT"); }catch{ return ""; } }
 
 /** ---------- Bulk helpers ---------- */
 function bulkAsIs(setter, val){

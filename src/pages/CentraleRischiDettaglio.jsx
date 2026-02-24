@@ -212,7 +212,6 @@ export default function CentraleRischiDettaglio(props) {
 
   const { id } = useParams();
   const {
-    codiceDocumento,      // <- DEFAULT period da qui
 period = id,  // se lo passi, override
     dataInizio = undefined,
     dataFine   = undefined,
@@ -308,6 +307,34 @@ period = id,  // se lo passi, override
     return { rows: Array.from(bancaMap.values()), cats };
   }, [affiRows]);
 
+  const downloadReport = async () => {
+    if (!effectivePeriod) return;
+    try {
+      const auth = (() => { try { return JSON.parse(localStorage.getItem("authUser")); } catch { return null; } })();
+      const token = auth?.token || auth?.access_token || auth?.jwt || null;
+      const headers = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const companyId = localStorage.getItem("currentCompany");
+      if (companyId) headers["CurrentCompany"] = companyId;
+
+      const API_BASE = "http://127.0.0.1:8000/api";
+      const res = await fetch(`${API_BASE}/reportAndamentale/${effectivePeriod}`, { headers });
+      if (!res.ok) throw new Error("Errore API");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Relazione_CR_${effectivePeriod}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      console.error(err);
+      alert("Errore durante la generazione del PDF");
+    }
+  };
+
   if (loading) {
     return (
       <FullPageLoader show={loading} />
@@ -324,29 +351,51 @@ period = id,  // se lo passi, override
   }
 
   return (
-    <div className="space-y-6">
-      {/* === PANORAMICA ======================================= */}
-      <section className="rounded-2xl border border-neutral-200 shadow-sm overflow-hidden bg-gradient-to-r from-[#F7F6FF] to-white">
-        <div className="p-5 flex items-center justify-left gap-4">
+    <div className="space-y-6 pb-20 font-sans min-h-screen text-slate-800 animate-fade-in-up">
+      {/* Return button */}
+      <a href="/analisi-cr" className="inline-flex items-center gap-2 text-sm text-[#5b63ff] hover:text-[#454de0] font-semibold transition-colors">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="rotate-180">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+        Torna a tutti i documenti CR
+      </a>
+
+      {/* === HERO PANORAMICA ======================================= */}
+      <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl p-6 shadow-sm ring-1 ring-slate-100 flex flex-col xl:flex-row items-center xl:items-stretch gap-6 transition-all">
+        <div className="shrink-0 flex items-center justify-center pt-2 xl:pt-0 xl:pr-6 xl:border-r border-slate-100">
           <ScoreRing value={Number(PANORAMICA.score)||0} />
-          <div className="min-w-0">
-            <div className="text-sm text-[#5b63ff] font-medium">Centrale Rischi · Panoramica</div>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">Valutazione Centrale Rischi</h1>
-            <p className="text-sm text-neutral-500">Sintesi dell’ultimo periodo caricato.</p>
-          </div>
         </div>
-
-        {/* aggiunti placeholder RS e P.IVA */}
-        <div className="px-5 pb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <KpiTile icon={IconCalendar} label="Periodo di riferimento" value={PANORAMICA.period || "—"} />
-          <IntermediariTile
-            items={INTERMEDIARI}
-            total={INTERMEDIARI.length || PANORAMICA.numIntermediari || 0}
-            onOpenDoc={() => setDocOpen(true)}
-          />
-
-                    <KpiTileTwo icon={IconCalendar} label="Azioni" />
-     
+        <div className="flex-1 w-full flex flex-col justify-center">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-[#5b63ff] font-semibold uppercase tracking-widest">Rapporto Dettagliato Centrale Rischi</div>
+              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">
+                Analisi del Rischio e Indebitamento
+              </h1>
+              <p className="mt-2 text-[15px] text-slate-500 max-w-xl leading-relaxed">
+                Valutazione sintetica ricavata dall'ultimo periodo caricato.
+              </p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+              <KpiTile icon={IconCalendar} label="Periodo analizzato" value={PANORAMICA.period || "—"} />
+              <IntermediariTile
+                items={INTERMEDIARI}
+                total={INTERMEDIARI.length || PANORAMICA.numIntermediari || 0}
+                onOpenDoc={() => setDocOpen(true)}
+              />
+              <button
+                onClick={downloadReport}
+                className="h-[46px] px-5 rounded-xl bg-slate-900 border border-slate-900 text-white text-sm font-semibold hover:bg-slate-800 shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 print:hidden"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Stampa Relazione
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -355,12 +404,10 @@ period = id,  // se lo passi, override
       <AnomalieGrid title="Anomalie Utilizzi" items={ANOMALIE_UTILIZZI} />
       <AnomalieGrid title="Anomalie Lievi"   items={ANOMALIE_LIEVI} />
 
-      <div className="px-2 text-center mt-5">
-        <h1 className="text-xl font-bold">Dettaglio</h1>
-      </div>
-
-      <div className="px-2">
-        <h1 className="text-xl font-bold">Sconfini</h1>
+      <div className="flex items-center gap-4 mt-8 mb-4">
+        <div className="h-px bg-slate-200 flex-1"></div>
+        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest text-center">Dettaglio Sconfini</h2>
+        <div className="h-px bg-slate-200 flex-1"></div>
       </div>
 
       {/* Sconfini */}
@@ -405,8 +452,10 @@ period = id,  // se lo passi, override
         </Card>
       </div>
 
-      <div className="px-2">
-        <h1 className="text-xl font-bold">Affidamenti</h1>
+      <div className="flex items-center gap-4 mt-8 mb-4">
+        <div className="h-px bg-slate-200 flex-1"></div>
+        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest text-center">Affidamenti</h2>
+        <div className="h-px bg-slate-200 flex-1"></div>
       </div>
 
       {/* Affidamenti: tabella + 3 charts richiesti */}
@@ -503,8 +552,10 @@ period = id,  // se lo passi, override
         </div>
       </Card>
 
-      <div className="px-2">
-        <h1 className="text-xl font-bold">Analisi Indebidamento</h1>
+      <div className="flex items-center gap-4 mt-8 mb-4">
+        <div className="h-px bg-slate-200 flex-1"></div>
+        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest text-center">Analisi Indebitamento</h2>
+        <div className="h-px bg-slate-200 flex-1"></div>
       </div>
 
       {/* Analisi indebitamento – Recharts */}
@@ -559,8 +610,10 @@ period = id,  // se lo passi, override
       </div>
 
       {/* ===== Posizioni di Rischio – impaginazione nuova ===== */}
-      <div className="px-2">
-        <h1 className="text-xl font-bold">Posizioni di Rischio</h1>
+      <div className="flex items-center gap-4 mt-8 mb-4">
+        <div className="h-px bg-slate-200 flex-1"></div>
+        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest text-center">Posizioni di Rischio e Garanzie</h2>
+        <div className="h-px bg-slate-200 flex-1"></div>
       </div>
 
       <Card title="Posizioni di Rischio – Sintesi e Grafici" subtitle="Valori medi sul periodo">
@@ -734,15 +787,18 @@ period = id,  // se lo passi, override
 /* ----------------- Sub-components ----------------- */
 function Card({ title, subtitle, right, children, className="" }) {
   return (
-    <section className={`bg-white rounded-xl border border-neutral-200 shadow-sm ${className}`}>
-      <div className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between">
+    <section className={`bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl shadow-sm ring-1 ring-slate-100 ${className}`}>
+      <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent flex items-center justify-between">
         <div>
-          <h2 className="font-semibold">{title}</h2>
-          {subtitle && <p className="text-sm text-neutral-500">{subtitle}</p>}
+          <h2 className="font-bold text-slate-800 flex items-center gap-2">
+            <div className="w-1.5 h-4 bg-[#5b63ff] rounded-full"></div>
+            {title}
+          </h2>
+          {subtitle && <p className="text-sm font-medium text-slate-500 mt-1 ml-3.5">{subtitle}</p>}
         </div>
         {right}
       </div>
-      <div className="p-4">{children}</div>
+      <div className="p-5">{children}</div>
     </section>
   );
 }
@@ -777,34 +833,32 @@ function Table({ cols, rows, empty = "Nessun dato", dense=false }) {
   );
 }
 
-function KpiTile({ icon:Icon, label, value }) {
+function KpiTile({ icon, label, value }) {
+  const Icon = icon;
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white/60 backdrop-blur px-4 py-3 flex items-center gap-3">
-      <div className="w-9 h-9 rounded-full grid place-items-center bg-neutral-900 text-white">
+    <div className="rounded-xl border border-slate-200/60 bg-white/60 backdrop-blur px-5 py-3.5 flex items-center gap-3 shadow-sm">
+      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 text-[#5b63ff]">
         <Icon />
       </div>
       <div className="min-w-0">
-        <div className="text-xs text-neutral-500 truncate">{label}</div>
-        <div className="text-[15px] font-medium truncate">{value}</div>
+        <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest truncate">{label}</div>
+        <div className="text-base font-bold text-slate-800 truncate">{value}</div>
       </div>
     </div>
   );
 }
 
-function KpiTileTwo({ icon:Icon, label, value }) {
+function KpiTileTwo({ icon, label }) {
+  const Icon = icon;
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white/60 backdrop-blur px-4 py-3 flex items-center gap-3">
-      <div className="w-9 h-9 rounded-full grid place-items-center bg-neutral-900 text-white">
+    <div className="rounded-xl border border-slate-200/60 bg-white/60 backdrop-blur px-5 py-3.5 flex items-center gap-3 shadow-sm">
+      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 text-[#5b63ff]">
         <Icon />
       </div>
-      <div className="min-w-0">
-        <div className="text-xs text-neutral-500 truncate">{label}</div>
-        <div className="text-[15px] font-medium truncate">{value}</div>
-
-                <button 
-          className="h-8 px-3 rounded-lg border border-neutral-300 text-sm hover:bg-neutral-50"
-        >
-          Visualizza Documento
+      <div className="min-w-0 flex flex-col gap-1 justify-center">
+        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none truncate">{label || "Azioni"}</div>
+        <button className="h-7 px-3 inline-flex items-center justify-center rounded-md border border-slate-200 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-50 shadow-sm transition-all whitespace-nowrap">
+          Vedi Documento
         </button>
       </div>
     </div>
@@ -872,27 +926,26 @@ function colorFromString(s) {
   return palette[Math.abs(h) % palette.length];
 }
 
-function IntermediariTile({ items, total, onClick, onOpenDoc }) {
+function IntermediariTile({ items, total, onClick }) {
   const tot = total || items?.length || 0;
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white/60 backdrop-blur px-4 py-3 flex items-center justify-between">
+    <div className="rounded-xl border border-slate-200/60 bg-white/60 backdrop-blur px-5 py-3.5 flex items-center justify-between gap-4 shadow-sm">
       <div>
-        <div className="text-xs text-neutral-500">Intermediari</div>
+        <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest truncate mb-1.5">Intermediari Trovati</div>
         <div className="mt-1 flex items-center gap-3">
           <AvatarsStack items={items} />
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs border border-neutral-300">
+          <span className="inline-flex items-center px-2 py-0.5 rounded border border-slate-200 text-xs font-semibold text-slate-600 bg-white shadow-sm">
             {tot} totali
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center">
         <button
           onClick={onClick ?? (() => alert("Elenco intermediari"))}
-          className="h-8 px-3 rounded-lg border border-neutral-300 text-sm hover:bg-neutral-50"
+          className="h-8 px-3.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-50 shadow-sm transition-all"
         >
           Vedi tutti
         </button>
-
       </div>
     </div>
   );
@@ -901,17 +954,17 @@ function IntermediariTile({ items, total, onClick, onOpenDoc }) {
 function KpiContestazioni({ value = 0 }) {
   const ok = Number(value) === 0;
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-3 mx-1 my-0 shadow-sm flex items-start gap-3">
-      <div className="w-9 h-9 rounded-full grid place-items-center text-white shrink-0 bg-black">
-        {ok ? <Check /> : <X />}
+    <div className="rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm flex items-center gap-4">
+      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 text-white shadow-sm ${ok ? 'bg-emerald-500' : 'bg-rose-500'}`}>
+        {ok ? <Check className="w-6 h-6" /> : <X className="w-6 h-6" />}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="font-medium leading-tight">N° Posizioni Contestate</div>
-        <div className="text-xs text-neutral-500">
-          {ok ? "Nessuna anomalia rilevata" : "Anomalia rilevata"}
+        <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Analisi Esposizioni e Rischio</div>
+        <div className="font-bold text-slate-800 text-lg leading-tight mt-0.5">N° Posizioni Contestate: {Number(value).toLocaleString("it-IT")}</div>
+        <div className={`text-sm mt-1 font-medium ${ok ? 'text-emerald-600' : 'text-rose-600'}`}>
+          {ok ? "Nessuna anomalia grave rilevata." : "Anomalia rilevata! Verifica il dettaglio."}
         </div>
       </div>
-      {Number(value).toLocaleString("it-IT")}
     </div>
   );
 }
@@ -925,16 +978,16 @@ const X = ({ className = "" }) => (
 
 function StatusPill({ state, value }) {
   if (state === "na") {
-    return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-100 text-neutral-700 text-xl">
-      {typeof value==="number" ? `· ${value}` : ""}
+    return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-semibold border border-slate-200 shadow-sm">
+      {typeof value==="number" ? `· ${value}` : "N/D"}
     </span>;
   }
   if (state === "bad") {
-    return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-600 text-white text-xs">
+    return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200 shadow-sm">
       <X/> Sì
     </span>;
   }
-  return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 text-white text-xs">
+  return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 shadow-sm">
     <Check/> No
   </span>;
 }
@@ -963,32 +1016,39 @@ const IcoHash = () => (
 
 function AnomaliaCard({ item }) {
   const state = item.neutral ? "na" : (item.ok ? "ok" : "bad");
-  const color = state === "ok" ? "#16a34a" : state === "bad" ? "#dc2626" : "#9ca3af";
+  const bgClass = state === "ok" ? "bg-emerald-50 text-emerald-600" : state === "bad" ? "bg-rose-50 text-rose-600" : "bg-slate-50 text-slate-500";
   const Icon = item.icon === "bolt" ? IcoBolt
             : item.icon === "shield" ? IcoShield
             : item.icon === "alert" ? IcoAlert
             : IcoHash;
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm flex items-start gap-3">
-      <div className="w-9 h-9 rounded-full grid place-items-center text-white shrink-0" style={{background:color}}>
+    <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm flex items-start gap-4">
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${bgClass}`}>
         <Icon/>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="font-medium leading-tight">{item.label}</div>
-        <div className="text-xs text-neutral-500">
+        <div className="font-bold text-slate-800 leading-tight mb-1">{item.label}</div>
+        <div className="text-xs font-semibold text-slate-500">
           {state==="na" ? "Dato non applicabile" : (state==="ok" ? "Nessuna anomalia rilevata" : "Anomalia rilevata")}
         </div>
       </div>
-      <StatusPill state={state} value={item.value}/>
+      <div className="flex shrink-0">
+        <StatusPill state={state} value={item.value}/>
+      </div>
     </div>
   );
 }
 
 function AnomalieGrid({ title, items }) {
   return (
-    <section className="m-1">
-      <div className="grid grid-cols-1 md:grid-cols-1 xl:grid-cols-1 gap-1">
+    <section className="mt-8 mb-6">
+      <div className="flex items-center gap-4 mb-4">
+        <div className="h-px bg-slate-200 flex-1"></div>
+        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest text-center">{title}</h2>
+        <div className="h-px bg-slate-200 flex-1"></div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {items.map((it, idx) => <AnomaliaCard key={it.key || idx} item={it}/>)}
       </div>
     </section>
@@ -1074,15 +1134,10 @@ function KpiBox({ label, value }) {
 function FullPageLoader({ show }) {
   if (!show) return null;
   return (
-    <div
-      className="fixed inset-0 z-50 bg-white/70 backdrop-blur-[1px] grid place-items-center"
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-    >
-      <div className="flex flex-col items-center gap-3">
-        <div className="h-12 w-12 rounded-full border-4 border-neutral-300 border-t-neutral-900 animate-spin" />
-        <div className="text-sm text-neutral-700">Caricamento dati Centrale Rischi</div>
+    <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm grid place-items-center animate-fade-in" role="status">
+      <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-2xl shadow-xl">
+        <div className="h-10 w-10 border-4 border-slate-100 border-t-[#5b63ff] rounded-full animate-spin" />
+        <div className="text-sm font-semibold text-slate-700">Caricamento dati Centrale Rischi...</div>
       </div>
     </div>
   );

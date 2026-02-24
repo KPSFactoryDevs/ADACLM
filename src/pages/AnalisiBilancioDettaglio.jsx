@@ -35,7 +35,7 @@ async function postRecapBilancioById(documentId) {
     body: JSON.stringify({ documentId }),
   });
 
-  let data = null; try { data = await res.json(); } catch {}
+  let data = null; try { data = await res.json(); } catch { /* ignore */ }
   if (!res.ok) throw new Error((data && data.message) || `${res.status} ${res.statusText}`);
   return data; // payload diretto con { idDocumento, renderHTML, bilancioAnalisi: {...} }
 }
@@ -45,7 +45,7 @@ async function postAnalisiBilancioBasic(payload) {
     headers: { "Content-Type": "application/json", ...commonHeaders() },
     body: JSON.stringify(payload),
   });
-  let data = null; try { data = await res.json(); } catch {}
+  let data = null; try { data = await res.json(); } catch { /* ignore */ }
   if (!res.ok) throw new Error((data && data.message) || `${res.status} ${res.statusText}`);
   return data;
 }
@@ -56,7 +56,7 @@ async function postMissingVoices(documentId, voci) {
     headers: { "Content-Type": "application/json", ...commonHeaders() },
     body: JSON.stringify({ documentId, voci }),
   });
-  let data = null; try { data = await res.json(); } catch {}
+  let data = null; try { data = await res.json(); } catch { /* ignore */ }
   if (!res.ok) throw new Error((data && data.message) || `${res.status} ${res.statusText}`);
   return data;
 }
@@ -90,7 +90,7 @@ const Q_MAP = {
 const classify = (score)=> SCALE.find(s=>score>=s.min) || SCALE.at(-1);
 const fmtPerc = (v) => v==null ? "N/A" : (v).toLocaleString("it-IT",{maximumFractionDigits:2}) + "%";
 const load = (k, def) => { try { const r = localStorage.getItem(k); return r?JSON.parse(r):def; } catch { return def; } };
-const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
 function parseNum(v){
   if (v === undefined || v === null || v === "") return null;
   const s = String(v).replaceAll(".", "").replace(",", ".");
@@ -191,6 +191,51 @@ export default function AnalisiBilancioDettaglio() {
     setTimeout(() => setToast(null), 3000);
   }
 
+  const handleRefreshedData = (payload) => {
+    if (!payload) return;
+    setRecap(payload);
+    setNomeAzienda(payload?.nome_azienda ?? null);
+
+    const maybeScore = payload?.bilancioAnalisi?.Score ?? payload?.bilancioAnalisi?.score ?? null;
+    if (maybeScore != null) {
+      const s = parseNum(maybeScore);
+      if (s != null) setScore(Math.max(0, Math.min(100, Math.round(s))));
+    }
+
+    const missingMap = {};
+    const missSrc = payload?.bilancioAnalisi?.indiceVociMancanti || {};
+    for (const [k,v] of Object.entries(missSrc)) missingMap[normKey(k)] = v;
+
+    const buildIndices = (srcObj) => {
+      return Object.entries(srcObj || {}).map(([nome, val]) => {
+        const id   = nomeToId(nome);
+        const norm = normKey(nome);
+        const missingVoci = missingMap[norm] || null;
+
+        if (val === false) return { id, nome, valore:null, fmt:"%", fuori:"N/A", missing:true, missingVoci };
+        if (typeof val === "object" && val !== null) {
+          const v  = parseNum(val.value);
+          const fs = !!val.fuoriSoglia;
+          return { id, nome, valore:v, fmt:"%", fuori: v==null ? "N/A" : (fs ? "Sì" : "No"), missing: v==null, missingVoci };
+        }
+        if (typeof val === "string") {
+          const note = val;
+          const bad  = /rischio/i.test(val);
+          return { id, nome, valore:null, fmt:"", fuori: bad ? "Sì" : "No", missing:false, note, missingVoci };
+        }
+        return { id, nome, valore:null, fmt:"", fuori:"N/A", missing:true, missingVoci };
+      });
+    };
+
+    const arr = buildIndices(payload?.bilancioAnalisi?.Indici?.Basic);
+    setIndici(arr);
+    save(keyFor("indici", docId), arr);
+
+    const arrAdvanced = buildIndices(payload?.bilancioAnalisi?.Indici?.Advanced);
+    setIndiciAdvanced(arrAdvanced);
+    save(keyFor("indiciAdvanced", docId), arrAdvanced);
+  };
+
   /* -------------------- Fetch via /recapBilancio -------------------- */
   useEffect(()=>{
     if (!docId) return;
@@ -201,65 +246,7 @@ export default function AnalisiBilancioDettaglio() {
         const data = await postRecapBilancioById(docId);
         if (cancel) return;
         const payload = data || null;
-        setRecap(payload);
-
-        setNomeAzienda(payload?.nome_azienda ?? null);
-
-        const maybeScore = payload?.bilancioAnalisi?.Score ?? payload?.bilancioAnalisi?.score ?? null;
-        if (maybeScore != null) {
-          const s = parseNum(maybeScore);
-          if (s != null) setScore(Math.max(0, Math.min(100, Math.round(s))));
-        }
-
-        const missingMap = {};
-        const missSrc = payload?.bilancioAnalisi?.indiceVociMancanti || {};
-        for (const [k,v] of Object.entries(missSrc)) missingMap[normKey(k)] = v;
-
-        const rawBasic = payload?.bilancioAnalisi?.Indici?.Basic || {};
-        const arr = Object.entries(rawBasic).map(([nome, val])=>{
-          const id   = nomeToId(nome);
-          const norm = normKey(nome);
-          const missingVoci = missingMap[norm] || null;
-
-          if (val === false) return { id, nome, valore:null, fmt:"%", fuori:"N/A", missing:true, missingVoci };
-          if (typeof val === "object" && val !== null) {
-            const v  = parseNum(val.value);
-            const fs = !!val.fuoriSoglia;
-            return { id, nome, valore:v, fmt:"%", fuori: v==null ? "N/A" : (fs ? "Sì" : "No"), missing: v==null, missingVoci };
-          }
-          if (typeof val === "string") {
-            const note = val;
-            const bad  = /rischio/i.test(val);
-            return { id, nome, valore:null, fmt:"", fuori: bad ? "Sì" : "No", missing:false, note, missingVoci };
-          }
-          return { id, nome, valore:null, fmt:"", fuori:"N/A", missing:true, missingVoci };
-        });
-
-        setIndici(arr);
-        save(keyFor("indici", docId), arr);
-
-        const rawBasicAdvanced = payload?.bilancioAnalisi?.Indici?.Advanced || {};
-        const arrAdvanced = Object.entries(rawBasicAdvanced).map(([nome, val])=>{
-          const id   = nomeToId(nome);
-          const norm = normKey(nome);
-          const missingVoci = missingMap[norm] || null;
-
-          if (val === false) return { id, nome, valore:null, fmt:"%", fuori:"N/A", missing:true, missingVoci };
-          if (typeof val === "object" && val !== null) {
-            const v  = parseNum(val.value);
-            const fs = !!val.fuoriSoglia;
-            return { id, nome, valore:v, fmt:"%", fuori: v==null ? "N/A" : (fs ? "Sì" : "No"), missing: v==null, missingVoci };
-          }
-          if (typeof val === "string") {
-            const note = val;
-            const bad  = /rischio/i.test(val);
-            return { id, nome, valore:null, fmt:"", fuori: bad ? "Sì" : "No", missing:false, note, missingVoci };
-          }
-          return { id, nome, valore:null, fmt:"", fuori:"N/A", missing:true, missingVoci };
-        });
-
-        setIndiciAdvanced(arrAdvanced);
-        save(keyFor("indiciarrAdvanced", docId), arrAdvanced);
+        if (payload) handleRefreshedData(payload);
 
         const In = payload?.bilancioAnalisi?.InputData || {};
         const nextQ = { ...qData };
@@ -286,7 +273,7 @@ export default function AnalisiBilancioDettaglio() {
         save(keyFor("q", docId), nextQ);
 
         setQFlags(payload?.bilancioAnalisi?.Questionari || {});
-      } catch (e) {
+      } catch {
         if (!cancel) setLoadErr("Errore nel caricamento del bilancio.");
       } finally {
         if (!cancel) setLoading(false);
@@ -360,30 +347,7 @@ export default function AnalisiBilancioDettaglio() {
         const refreshed = await postRecapBilancioById(docId);
         setQFlags(refreshed?.bilancioAnalisi?.Questionari || qFlags);
 
-        const missSrc = refreshed?.bilancioAnalisi?.indiceVociMancanti || {};
-        const mm = {};
-        for (const [k,v] of Object.entries(missSrc)) mm[normKey(k)] = v;
-
-        const rawBasic = refreshed?.bilancioAnalisi?.Indici?.Basic || {};
-        const arr = Object.entries(rawBasic).map(([nome, val])=>{
-          const id = nomeToId(nome);
-          const norm = normKey(nome);
-          const missingVoci = mm[norm] || null;
-          if (val === false) return { id, nome, valore:null, fmt:"%", fuori:"N/A", missing:true, missingVoci };
-          if (typeof val === "object" && val !== null) {
-            const v  = parseNum(val.value);
-            const fs = !!val.fuoriSoglia;
-            return { id, nome, valore:v, fmt:"%", fuori: v==null ? "N/A" : (fs ? "Sì" : "No"), missing: v==null, missingVoci };
-          }
-          if (typeof val === "string") {
-            const note = val;
-            const bad  = /rischio/i.test(val);
-            return { id, nome, valore:null, fmt:"", fuori: bad ? "Sì" : "No", missing:false, note, missingVoci };
-          }
-          return { id, nome, valore:null, fmt:"", fuori:"N/A", missing:true, missingVoci };
-        });
-        setIndici(arr);
-        save(keyFor("indici", docId), arr);
+        handleRefreshedData(refreshed);
       } catch (e) {
         console.error(e);
       } finally {
@@ -399,7 +363,14 @@ export default function AnalisiBilancioDettaglio() {
   };
 
   const openVoci = (row) => {
-    const voci = listMissingKeys(row?.missingVoci);
+    let voci = listMissingKeys(row?.missingVoci);
+    
+    // If the index requires missing voices but none were found mapped specifically to it
+    // (e.g. they are mapped under shared keys like "Totale Crediti"), fallback to ALL missing voices
+    if (voci.length === 0 && recap?.bilancioAnalisi?.indiceVociMancanti) {
+      voci = getAllMissingKeys(recap.bilancioAnalisi.indiceVociMancanti);
+    }
+
     const prefill = {};
     const init = {};
     voci.forEach(k => { init[k] = prefill?.[k] ?? ""; });
@@ -429,34 +400,7 @@ export default function AnalisiBilancioDettaglio() {
       await postMissingVoices(docId, payloadVoci);
 
       const refreshed = await postRecapBilancioById(docId);
-      setRecap(refreshed);
-      setNomeAzienda(refreshed?.nome_azienda ?? null);
-
-      const missSrc = refreshed?.bilancioAnalisi?.indiceVociMancanti || {};
-      const mm = {};
-      for (const [k,v] of Object.entries(missSrc)) mm[normKey(k)] = v;
-
-      const rawBasic = refreshed?.bilancioAnalisi?.Indici?.Basic || {};
-      const arr = Object.entries(rawBasic).map(([nome, val])=>{
-        const id = nomeToId(nome);
-        const norm = normKey(nome);
-        const missingVoci = mm[norm] || null;
-
-        if (val === false) return { id, nome, valore:null, fmt:"%", fuori:"N/A", missing:true, missingVoci };
-        if (typeof val === "object" && val !== null) {
-          const v  = parseNum(val.value);
-          const fs = !!val.fuoriSoglia;
-          return { id, nome, valore:v, fmt:"%", fuori: v==null ? "N/A" : (fs ? "Sì" : "No"), missing: v==null, missingVoci };
-        }
-        if (typeof val === "string") {
-          const note = val;
-          const bad  = /rischio/i.test(val);
-          return { id, nome, valore:null, fmt:"", fuori: bad ? "Sì" : "No", missing:false, note, missingVoci };
-        }
-        return { id, nome, valore:null, fmt:"", fuori:"N/A", missing:true, missingVoci };
-      });
-      setIndici(arr);
-      save(keyFor("indici", docId), arr);
+      handleRefreshedData(refreshed);
 
       showToast("success", "Voci salvate e indici aggiornati.");
       setModalVoci(null);
@@ -475,6 +419,30 @@ export default function AnalisiBilancioDettaglio() {
   };
   const labelsMap = recap?.bilancioAnalisi?.labels || {};
   const openQuestionario = (id) => setQModal(id);
+
+  const downloadReport = async () => {
+    if (!docId) return;
+    try {
+      showToast("info", "Generazione report in corso...");
+      const res = await fetch(`${API_BASE}/reportBasicPDF/${docId}`, {
+        headers: commonHeaders()
+      });
+      if (!res.ok) throw new Error("Errore API");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Relazione_Bilancio_${docId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+      showToast("success", "Report scaricato.");
+    } catch (err) {
+      console.error(err);
+      showToast("error", "Errore durante la generazione del PDF");
+    }
+  };
 
   /* ======================= Render ======================= */
   return (
@@ -518,14 +486,25 @@ export default function AnalisiBilancioDettaglio() {
               </div>
             </div>
 
-            <div className="shrink-0">
+            <div className="shrink-0 flex items-center gap-3">
               {loading ? <SkBtn w={160} /> : (
-                <button
-                  onClick={()=>setPreviewOpen(true)}
-                  className="h-10 px-5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 shadow-md hover:shadow-lg transition-all"
-                >
-                  Anteprima bilancio {'>'}
-                </button>
+                <>
+                  <button
+                    onClick={downloadReport}
+                    className="h-10 px-5 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all flex items-center gap-2 print:hidden"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Stampa Relazione
+                  </button>
+                  <button
+                    onClick={()=>setPreviewOpen(true)}
+                    className="h-10 px-5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 shadow-md hover:shadow-lg transition-all print:hidden"
+                  >
+                    Anteprima bilancio {'>'}
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -754,7 +733,7 @@ export default function AnalisiBilancioDettaglio() {
       {/* MODALE: VALORI MANCANTI ========================================================= */}
       {modalVoci && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 grid place-items-center p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl w-full max-w-3xl flex flex-col shadow-2xl ring-1 ring-slate-100 max-h-[90vh]">
+          <div className="bg-white rounded-2xl w-full max-w-5xl flex flex-col shadow-2xl ring-1 ring-slate-100 max-h-[90vh]">
             <div className="p-6 border-b border-slate-100">
               <h3 className="text-xl font-bold text-slate-800">{modalVoci.nome}</h3>
               <p className="text-sm text-slate-500 mt-1 font-medium">
@@ -768,7 +747,6 @@ export default function AnalisiBilancioDettaglio() {
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
                     <tr>
                       <th className="px-4 py-3 text-left">Descrizione Voce</th>
-                      <th className="px-4 py-3 text-left w-1/4">ID Chiave</th>
                       <th className="px-4 py-3 text-left w-1/3">Importo (€)</th>
                     </tr>
                   </thead>
@@ -779,14 +757,16 @@ export default function AnalisiBilancioDettaglio() {
                       <tr key={k} className="hover:bg-slate-50/50 transition-colors">
                         {(() => {
                           const { base, idx } = splitCombinedKey(k);
+                          const periodLabel = idx === "1" ? "Anno Corrente" : idx === "2" ? "Anno Precedente" : "";
+
                           return (
                             <td className="px-4 py-3 font-medium text-slate-800">
                               {labelsMap[base] || base}
-                              {idx && <span className="ml-2 px-1.5 py-0.5 rounded bg-slate-100 text-xs font-semibold text-slate-500">Vol. {idx}</span>}
+                              {periodLabel && <span className="ml-2 px-1.5 py-0.5 rounded bg-amber-100 text-xs font-semibold text-amber-800">{periodLabel}</span>}
                             </td>
                           );
                         })()}
-                        <td className="px-4 py-3 text-xs font-mono text-slate-400">{k}</td>
+
                         <td className="px-4 py-3">
                           <input
                             className="w-full h-9 border border-slate-200 rounded-lg px-3 py-1.5 focus:border-[#5b63ff] focus:ring-1 focus:ring-[#5b63ff] outline-none transition-all shadow-inner font-semibold text-slate-700 bg-slate-50 focus:bg-white"
@@ -1042,21 +1022,42 @@ function countMissingVoci(miss){
 function listMissingKeys(miss){
   const out = [];
   if (!miss) return out;
-  for (const bucket of Object.values(miss)) {
-    if (!Array.isArray(bucket)) continue;
-    for (const item of bucket) {
+  if (Array.isArray(miss) && miss.length > 0 && typeof miss[0] === "string") {
+    // legacy array fallback ONLY if it's an array of strings
+    for (const item of miss) {
+      out.push(String(item) + "_1");
+    }
+    return out;
+  }
+  
+  // Normalize miss into entries (period, bucket)
+  // If miss is an array (e.g. due to PHP 0-idx), its periods become "0", "1", etc.
+  for (const [period, bucket] of Object.entries(miss)) {
+    const arr = Array.isArray(bucket) ? bucket : Object.values(bucket);
+    if (!Array.isArray(arr)) continue;
+    for (const item of arr) {
       if (Array.isArray(item) && item.length >= 2) {
         const [key, idx] = item;
         out.push(String(key) + "_" + String(idx));
       } else if (item && typeof item === "object" && "key" in item) {
-        const idx = item.index ?? item.idx ?? item.period ?? 1;
+        const idx = item.index ?? item.idx ?? item.period ?? period;
         out.push(String(item.key) + "_" + String(idx));
       } else {
-        out.push(String(item));
+        out.push(String(item) + "_" + period);
       }
     }
   }
   return out;
+}
+
+function getAllMissingKeys(missSrc) {
+  if (!missSrc) return [];
+  const set = new Set();
+  for (const bucket of Object.values(missSrc)) {
+    const keys = listMissingKeys(bucket);
+    for (const k of keys) set.add(k);
+  }
+  return Array.from(set);
 }
 function splitCombinedKey(k){
   const m = String(k).match(/^(.*)_(\d+)$/);
