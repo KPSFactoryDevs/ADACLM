@@ -329,19 +329,19 @@ export default function AnalisiBilancioDettaglio() {
 
       const payload = {
         idBilancio: docId,
-        agenziaEntrate1: qData.ade.debito || "",
-        agenziaEntrate2: qData.ade.vaTrimestre || "",
-        agenziaEntrate3: qData.ade.vaAnnoPrec || "",
+        agenziaEntrate1: toApiString(qData.ade.debito),
+        agenziaEntrate2: toApiString(qData.ade.vaTrimestre),
+        agenziaEntrate3: toApiString(qData.ade.vaAnnoPrec),
         agenziaEntrate4: ade4,
-        INPS1: qData.inps.nonVersati || "",
-        INPS2: qData.inps.totAnnoPrec || "",
+        INPS1: toApiString(qData.inps.nonVersati),
+        INPS2: toApiString(qData.inps.totAnnoPrec),
         INPS3: inps3,
-        riscossione: qData.risc.crediti || "",
-        retribuzioni1: qData.retrib.debiti || "",
-        retribuzioni2: qData.retrib.totMensili || "",
+        riscossione: toApiString(qData.risc.crediti),
+        retribuzioni1: toApiString(qData.retrib.debiti),
+        retribuzioni2: toApiString(qData.retrib.totMensili),
         retribuzioni3: re3,
-        fornitori1: qData.forn.debiti || "",
-        fornitori2: qData.forn.acquisti || "",
+        fornitori1: toApiString(qData.forn.debiti),
+        fornitori2: toApiString(qData.forn.acquisti),
       };
 
       await postAnalisiBilancioBasic(payload);
