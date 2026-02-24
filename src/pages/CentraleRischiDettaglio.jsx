@@ -317,7 +317,7 @@ period = id,  // se lo passi, override
       const companyId = localStorage.getItem("currentCompany");
       if (companyId) headers["CurrentCompany"] = companyId;
 
-      const API_BASE = "http://127.0.0.1:8000/api";
+      const API_BASE = "https://ada-stage.compaynet-b2b.com/api";
       const res = await fetch(`${API_BASE}/reportAndamentale/${effectivePeriod}`, { headers });
       if (!res.ok) throw new Error("Errore API");
       const blob = await res.blob();
