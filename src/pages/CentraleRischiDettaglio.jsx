@@ -8,7 +8,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell,
 } from "recharts";
-import { CentraleRischi } from "../lib/api";
+import { CentraleRischi, API_BASE } from "../lib/api";
 import { useParams } from 'react-router-dom';
 /* ----------------- Utils ----------------- */
 const fmtMoney = (v) =>
@@ -198,12 +198,16 @@ function parseStateFromApi(raw) {
     ricevuteImporto:Number(gar?.GaranzieRicevute?.TotaleImporto || 0),
   };
 
+  const anagrafica = root?.Anagrafica || null;
+  const righeGrezze = root?.RigheGrezze || [];
+
   return {
     panoramica, intermediari,
     anomalieUtilizzi, anomalieLievi,
     sconfini, affidamenti,
     serie: { complessivo: SERIE_COMPLESSIVO, scadenza: SERIE_SCADENZA, autoliquida: SERIE_AUTOLIQ },
     posizioniRischi, garanzie,
+    anagrafica, righeGrezze,
   };
 }
 
@@ -224,6 +228,7 @@ period = id,  // se lo passi, override
   const [error, setError]     = useState(null);
   const [data, setData]       = useState(() => parseStateFromApi({}));
   const [docOpen, setDocOpen] = useState(false); // modale documento
+  const [activeTab, setActiveTab] = useState("sintesi");
 
   useEffect(() => {
     let mounted = true;
@@ -264,6 +269,8 @@ period = id,  // se lo passi, override
   const SERIE_AUTOLIQ     = data.serie.autoliquida;
   const POSIZIONI_RISCHI  = data.posizioniRischi;
   const GARANZIE          = data.garanzie;
+  const ANAGRAFICA        = data.anagrafica;
+  const RIGHE_GREZZE      = data.righeGrezze;
 
   const totAcc = useMemo(()=> sum(AFFIDAMENTI, a=>a.accordato), [AFFIDAMENTI]);
   const totUtl = useMemo(()=> sum(AFFIDAMENTI, a=>a.utilizzato), [AFFIDAMENTI]);
@@ -316,8 +323,6 @@ period = id,  // se lo passi, override
       if (token) headers["Authorization"] = `Bearer ${token}`;
       const companyId = localStorage.getItem("currentCompany");
       if (companyId) headers["CurrentCompany"] = companyId;
-
-      const API_BASE = "https://ada-stage.compaynet-b2b.com/api";
       const res = await fetch(`${API_BASE}/reportAndamentale/${effectivePeriod}`, { headers });
       if (!res.ok) throw new Error("Errore API");
       const blob = await res.blob();
@@ -376,6 +381,11 @@ period = id,  // se lo passi, override
               <p className="mt-2 text-[15px] text-slate-500 max-w-xl leading-relaxed">
                 Valutazione sintetica ricavata dall'ultimo periodo caricato.
               </p>
+              {ANAGRAFICA && (
+                <div className="mt-3 text-sm text-slate-700 font-medium">
+                  <strong>Intestatario:</strong> {ANAGRAFICA.ragione_sociale} {ANAGRAFICA.codice_fiscale && `(${ANAGRAFICA.codice_fiscale})`}
+                </div>
+              )}
             </div>
             
             <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
@@ -399,7 +409,30 @@ period = id,  // se lo passi, override
         </div>
       </section>
 
-      <KpiContestazioni value={PANORAMICA.contestate || 0} />
+      <div className="flex items-center gap-6 border-b border-slate-200">
+        <button
+          onClick={() => setActiveTab("sintesi")}
+          className={`pb-3 font-semibold text-sm transition-colors relative ${activeTab === "sintesi" ? "text-[#5b63ff]" : "text-slate-500 hover:text-slate-800"}`}
+        >
+          Sintesi e Cruscotto
+          {activeTab === "sintesi" && (
+            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#5b63ff] rounded-t-full"></span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("righe")}
+          className={`pb-3 font-semibold text-sm transition-colors relative ${activeTab === "righe" ? "text-[#5b63ff]" : "text-slate-500 hover:text-slate-800"}`}
+        >
+          Dati Estratti (Righe)
+          {activeTab === "righe" && (
+            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#5b63ff] rounded-t-full"></span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === "sintesi" && (
+        <div className="space-y-6">
+          <KpiContestazioni value={PANORAMICA.contestate || 0} />
 
       <AnomalieGrid title="Anomalie Utilizzi" items={ANOMALIE_UTILIZZI} />
       <AnomalieGrid title="Anomalie Lievi"   items={ANOMALIE_LIEVI} />
@@ -750,6 +783,27 @@ period = id,  // se lo passi, override
           </Card>
         </div>
       </Card>
+      </div>
+      )}
+
+      {activeTab === "righe" && (
+        <Card title="Righe Documento Estratte" subtitle="Mostrate nel preciso ordine in cui compaiono nel documento. Include anche i garanti.">
+          <Table 
+            dense
+            cols={[
+              {key: "periodo", title: "Periodo", render: (_, r) => `${r.mese || ""} ${r.anno || ""}`.trim() },
+              {key: "nome_banca", title: "Intermediario / Garante", render: (_, r) => r.nome_garante ? `${r.nome_banca} - Garante: ${r.nome_garante}` : (r.nome_banca || "—") },
+              {key: "sezione", title: "Sezione" },
+              {key: "categoria", title: "Categoria" },
+              {key: "accordato", title: "Accordato", render: (v) => v || "—" },
+              {key: "utilizzato", title: "Utilizzato", render: (v) => v || "—" },
+              {key: "importo", title: "Importo / Garanzia", render: (_, r) => r.importo || r.importo_garantito || r.garantito || r.garanzia || r.valore_garanzia || "—" },
+              {key: "saldo_medio", title: "Saldo Medio" },
+            ]}
+            rows={RIGHE_GREZZE} 
+          />
+        </Card>
+      )}
 
       {/* loader "extra" come nel file originale */}
       <FullPageLoader show={loading} />

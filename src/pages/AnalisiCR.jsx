@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-/* ================== MINI API ================== */
-const API_BASE = "https://ada-stage.compaynet-b2b.com/api";
+import { API_BASE } from "../lib/api";
 
 function getToken() {
   try { return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; } catch { return null; }
@@ -109,19 +107,33 @@ export default function AnalisiCR() {
     setTimeout(() => setToast(null), 3000);
   }
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await CRApi.list();
-        setRows(mapCRDocs(data));
-      } catch (e) {
-        showToast("error", e.message || "Errore nel caricamento documenti CR");
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const fetchDocs = React.useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const data = await CRApi.list();
+      setRows(mapCRDocs(data));
+    } catch (e) {
+      if (!silent) showToast("error", e.message || "Errore nel caricamento documenti CR");
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchDocs();
+  }, [fetchDocs]);
+
+  useEffect(() => {
+    // Se c'è almeno un documento non completo e senza errori, abilitiamo il polling
+    const hasProcessing = rows.some(r => r.stato !== "Completo" && !r.stato.toLowerCase().includes("errore"));
+    if (!hasProcessing) return;
+
+    const interval = setInterval(() => {
+      fetchDocs(true);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [rows, fetchDocs]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -229,9 +241,6 @@ export default function AnalisiCR() {
           <div className="px-4 py-2 bg-white border border-slate-200/80 rounded-lg shadow-sm font-medium text-slate-600">
             <span className="text-[#5b63ff] font-bold mr-1">{filtered.length}</span> documenti
           </div>
-          <div className="px-5 py-2 bg-gradient-to-r from-slate-50 to-white border border-slate-200/80 rounded-lg shadow-sm font-medium text-slate-600">
-            Totale Accordato: <span className="font-bold text-slate-800 ml-1 tracking-tight">{fmtMoney(totalExpo)}</span>
-          </div>
         </div>
       </div>
 
@@ -244,8 +253,7 @@ export default function AnalisiCR() {
                 <Th>Azienda</Th>
                 <Th>Periodo Riferimento</Th>
                 <Th>Tipo / Formato</Th>
-                <Th>Stato Elaborazione</Th>
-                <Th className="text-right">Esposizione / Valore</Th>
+                <Th>Stato Elaborazione</Th> 
                 <Th>Caricato il</Th>
                 <Th className="text-right pr-6">Azioni Rapide</Th>
               </tr>
@@ -298,13 +306,11 @@ export default function AnalisiCR() {
                       </div>
                     </Td>
                     <Td>
-                      <Badge tone={r.stato === "Completo" ? "emerald" : r.stato === "Da Elaborare" ? "amber" : "slate"}>
+                      <Badge tone={r.stato === "Completo" ? "emerald" : r.stato === "Da Elaborare" ? "amber" : r.stato.toLowerCase().includes("errore") ? "rose" : "indigo"}>
                         {r.stato}
                       </Badge>
                     </Td>
-                    <Td className="text-right font-semibold text-slate-700 tracking-tight">
-                      {fmtMoney(r.esposizione)}
-                    </Td>
+               
                     <Td className="text-slate-500 whitespace-nowrap">{r.uploadedAt}</Td>
                     <Td className="text-right pr-6">
                       <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
@@ -467,10 +473,22 @@ function mapCRDocs(docs) {
       const stato = (d.status || "").trim() ? ((d.status === "Completato") ? "Completo" : d.status) : "Da Elaborare";
       const periodo = d.availableMonths || "—";
 
+      let anagrafica = null;
+      if (d.other_data_json) {
+        try {
+          const od = typeof d.other_data_json === "string" ? JSON.parse(d.other_data_json) : d.other_data_json;
+          anagrafica = od?.anagrafica_cr;
+        } catch {
+          // ignore
+        }
+      }
+      const cfStr = anagrafica?.codice_fiscale ? ` (${anagrafica.codice_fiscale})` : "";
+      const anagLabel = anagrafica?.ragione_sociale ? `${anagrafica.ragione_sociale}${cfStr}` : "";
+
       return {
         id: d.id,
         codiceDocumento: d.codice_documento,
-        azienda: d.nome_azienda || fallbackName || "—",
+        azienda: anagLabel || d.nome_azienda || fallbackName || "—",
         periodo,
         tipo: "Mensile", 
         formato,

@@ -1,6 +1,10 @@
 // src/lib/api.js
-const API_BASE = import.meta.env.VITE_API_BASE || "https://ada-stage.compaynet-b2b.com/api";
-const API_URL  = import.meta.env.VITE_API_BASE || "https://ada-stage.compaynet-b2b.com/api";
+export const API_BASE = import.meta.env.VITE_API_BASE || 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? "http://127.0.0.1:8000/api" 
+    : "https://ada-stage.compaynet-b2b.com/api");
+
+export const API_URL  = API_BASE;
 
 /* ----------------- helpers token/azienda ----------------- */
 function getToken() {
@@ -57,6 +61,9 @@ export const Companies = {
   },
   create(payload) {
     return api("/company", { method: "POST", body: payload });
+  },
+  update(id, payload) {
+    return api(`/company/${id}`, { method: "POST", body: payload });
   },
 };
 

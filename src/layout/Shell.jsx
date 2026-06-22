@@ -12,7 +12,7 @@ export default function Shell({ children, onLogout }) {
        { to: "/analisi-bilancio", label: "Bilanci", icon: BarsIcon },
       { to: "/analisi-cr", label: "Centrale Rischi", icon: TrendIcon },
       { to: "/allerta", label: "Questionari", icon: TrendIcon },
-   
+      { to: "/impostazioni-azienda", label: "Azienda", icon: UsersIcon },
     ],
     []
   );

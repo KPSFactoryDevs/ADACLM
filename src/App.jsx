@@ -23,6 +23,7 @@ const Scadenze = React.lazy(() => import("./pages/Scadenze.jsx"));
 const ContoDettaglio = React.lazy(() => import("./pages/ContoDettaglio.jsx"));
 const AIChat = React.lazy(() => import("./pages/AIChat.jsx"));
 const CashFlow = React.lazy(() => import("./pages/CashFlow.jsx"));
+const ImpostazioniAzienda = React.lazy(() => import("./pages/ImpostazioniAzienda.jsx"));
 
 const isAuthenticated = () => {
   try {
@@ -82,6 +83,7 @@ export default function App() {
             <Route path="/conti-correnti" element={<ContiCorrenti />} />
             <Route path="/conti-correnti/:id" element={<ContoDettaglio />} />
             <Route path="/movimenti" element={<Movimenti />} />
+            <Route path="/impostazioni-azienda" element={<ImpostazioniAzienda />} />
             <Route path="/analisi-bilancio/:id" element={<AnalisiBilancioDettaglio />} />
             <Route path="/analisi-cr/dettaglio/:id" element={<CentraleRischiDettaglio />} />
             <Route path="/simulazione" element={<Simulazione />} />

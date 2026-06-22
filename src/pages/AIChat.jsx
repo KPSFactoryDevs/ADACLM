@@ -1,46 +1,17 @@
 // src/pages/AIChat.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../lib/api";
 
 /** ===== Helpers storage ===== */
 const load = (k, def) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
 /** ===== Config & API ===== */
-const API_BASE = (import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000").replace(/\/$/, "");
-
-// Legge auth e headers standard (Authorization + CurrentCompany se presenti)
-function commonHeaders() {
-  const headers = { "Content-Type": "application/json", Accept: "application/json" };
-
-  // token (compatibile con i tuoi storage attuali)
-  try {
-    const raw = localStorage.getItem("authUser");
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const token = parsed?.token || parsed?.access_token || parsed?.jwt;
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-    }
-  } catch {}
-
-  // azienda corrente
-  const currentCompany =
-    localStorage.getItem("currentCompany") ||
-    JSON.parse(localStorage.getItem("sb_company") || "null")?.id ||
-    null;
-  if (currentCompany) headers["CurrentCompany"] = currentCompany;
-
-  return headers;
-}
-
 async function askAssistant(question) {
-  const res = await fetch(`${API_BASE}/api/assistant`, {
+  return api("/assistant", {
     method: "POST",
-    headers: commonHeaders(),
-    body: JSON.stringify({ question }),
+    body: { question },
   });
-  let data = null; try { data = await res.json(); } catch {}
-  if (!res.ok) throw new Error((data && data.message) || `${res.status} ${res.statusText}`);
-  return data; // { ok, question, sql, explanation, summary, data, limit }
 }
 
 /** ====== Component ====== */

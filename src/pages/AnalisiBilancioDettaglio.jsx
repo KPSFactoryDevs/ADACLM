@@ -5,9 +5,7 @@ import { Gauge } from "../components/ui/Gauge";
 import { Badge } from "../components/ui/Badge";
 import { Pill } from "../components/ui/Pill";
 import { PencilIcon, ArrowRightIcon, CheckCircleIcon, XCircleIcon } from "../components/ui/Icons";
-
-/* ======================= Config & API ======================= */
-const API_BASE = "https://ada-stage.compaynet-b2b.com/api";
+import { API_BASE } from "../lib/api";
 
 function getAuth() {
   try {

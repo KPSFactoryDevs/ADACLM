@@ -1,8 +1,7 @@
 // src/pages/Clienti.jsx
 import React, { useEffect, useMemo, useState, useRef } from "react";
 
-/* ===================== MINI API ===================== */
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000/api";
+import { API_BASE } from "../lib/api";
 function getToken(){ try{ return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; }catch{ return null; } }
 function getCompanyId(){ try{ return JSON.parse(localStorage.getItem("sb_company"))?.id || null; }catch{ return null; } }
 

@@ -2,9 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SearchIcon, UploadIcon, DownloadIcon, TrashIcon } from "../components/ui/Icons";
 import { Badge } from "../components/ui/Badge";
-
-/* ========== MINI API CLIENT LOCALE ========== */
-const API_BASE = "https://ada-stage.compaynet-b2b.com/api";
+import { API_BASE } from "../lib/api";
 
 function getToken() {
   try { return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; }
