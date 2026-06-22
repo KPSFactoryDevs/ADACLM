@@ -5,9 +5,7 @@ import { Gauge } from "../components/ui/Gauge";
 import { Pill } from "../components/ui/Pill";
 import { Sparkline } from "../components/ui/Sparkline";
 import { AlertIcon, TrendIcon, BarsIcon, BriefcaseIcon, BuildingIcon, CrIcon, ShieldIcon, ArrowRightIcon } from "../components/ui/Icons";
-
-/* ---------------- API UTILS ---------------- */
-const API_BASE = "https://ada-stage.compaynet-b2b.com/api";
+import { API_BASE } from "../lib/api";
 
 function getToken() {
   try { return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; }
@@ -307,7 +305,7 @@ export default function Dashboard() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
           </svg>
-          Stampa Relazione
+          Stampa Rapporto
         </button>
       </div>
 
@@ -351,10 +349,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          
-          <div className="shrink-0 flex items-center justify-center p-6 rounded-2xl bg-gradient-to-b from-slate-50 to-white border border-slate-100 shadow-inner">
-            <Gauge value={allertaNum} textValue={finalScoreWord} color={allertaColor} size={140} stroke={12} label="Score Globale" />
-          </div>
+ 
         </div>
       </section>
 

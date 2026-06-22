@@ -10,9 +10,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-/* ======================= BACKEND HELPERS ======================= */
-const API_BASE =
-  import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "http://localhost:8000";
+import { API_BASE as CENTRAL_API_BASE } from "../lib/api";
+const API_BASE = CENTRAL_API_BASE.replace(/\/api$/, "");
 
 // legge il token da localStorage sb_auth -> { token: "..." }
 function getBearerHeaders() {
