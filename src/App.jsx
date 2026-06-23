@@ -24,6 +24,7 @@ const ContoDettaglio = React.lazy(() => import("./pages/ContoDettaglio.jsx"));
 const AIChat = React.lazy(() => import("./pages/AIChat.jsx"));
 const CashFlow = React.lazy(() => import("./pages/CashFlow.jsx"));
 const ImpostazioniAzienda = React.lazy(() => import("./pages/ImpostazioniAzienda.jsx"));
+const SsoLogin = React.lazy(() => import("./pages/SsoLogin.jsx"));
 
 const isAuthenticated = () => {
   try {
@@ -71,6 +72,14 @@ export default function App() {
           element={
             <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center"><div className="w-10 h-10 border-4 border-slate-200 border-t-[#5b63ff] rounded-full animate-spin"></div></div>}>
               <Login />
+            </Suspense>
+          } 
+        />
+        <Route 
+          path="/sso-login" 
+          element={
+            <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center"><div className="w-10 h-10 border-4 border-slate-200 border-t-[#5b63ff] rounded-full animate-spin"></div></div>}>
+              <SsoLogin />
             </Suspense>
           } 
         />

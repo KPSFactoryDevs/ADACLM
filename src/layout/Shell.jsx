@@ -1,7 +1,9 @@
 // src/layout/Shell.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Companies } from "../lib/api"; // <-- API client per aziende
+
+const KPS_SUITES_URL = import.meta.env.VITE_KPS_SUITES_URL || "http://localhost:8000";
 
 export default function Shell({ children, onLogout }) {
   const { pathname } = useLocation();
@@ -44,7 +46,9 @@ export default function Shell({ children, onLogout }) {
       {/* TOPBAR */}
       <header className="h-[44px] bg-white border-b border-neutral-200/80 flex items-center justify-between px-3">
         <div className="text-[13px] font-medium tracking-tight" />
- 
+        <div className="flex items-center gap-2">
+          <Launchpad />
+        </div>
       </header>
 
       <div className="flex">
@@ -324,6 +328,186 @@ function CompanySelector() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ===== Launchpad (App Launcher) ===== */
+function Launchpad() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  const apps = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem("kps_apps")) || []; }
+    catch { return []; }
+  }, []);
+
+  const meta = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem("kps_meta")) || {}; }
+    catch { return {}; }
+  }, []);
+
+  const suitesUrl = meta.kps_suites_url || KPS_SUITES_URL;
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const appIcons = {
+    marketing: "📧",
+    menu: "🍽️",
+    pos: "🧾",
+    accounting: "📊",
+    crm: "👥",
+    hr: "🏢",
+    finance: "📈",
+    education: "🎓",
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((s) => !s)}
+        className="w-8 h-8 rounded-lg border-none bg-transparent cursor-pointer flex items-center justify-center text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50 transition"
+        title="App Launcher"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="5" cy="5" r="2" />
+          <circle cx="12" cy="5" r="2" />
+          <circle cx="19" cy="5" r="2" />
+          <circle cx="5" cy="12" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="19" cy="12" r="2" />
+          <circle cx="5" cy="19" r="2" />
+          <circle cx="12" cy="19" r="2" />
+          <circle cx="19" cy="19" r="2" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: "calc(100% + 8px)",
+            width: 300,
+            borderRadius: 16,
+            background: "#1e293b",
+            border: "1px solid rgba(255,255,255,0.08)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
+            padding: 16,
+            zIndex: 100,
+          }}
+        >
+          <p
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#94a3b8",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              marginBottom: 12,
+              paddingLeft: 4,
+            }}
+          >
+            Le tue App
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+            {/* KPS Suites — always first */}
+            <a
+              href={suitesUrl.replace("/login", "")}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 8,
+                padding: "12px 8px",
+                borderRadius: 12,
+                textDecoration: "none",
+                transition: "background 0.2s",
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+              onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 18,
+                  background: "linear-gradient(135deg,#6366f1,#4f46e5)",
+                  color: "#fff",
+                }}
+              >
+                ⚡
+              </div>
+              <span style={{ fontSize: 11, color: "#cbd5e1", textAlign: "center", lineHeight: 1.3 }}>
+                KPS Suites
+              </span>
+            </a>
+
+            {/* Dynamic apps from SSO payload */}
+            {apps.map((app) => (
+              <a
+                key={app.id || app.slug}
+                href={app.launch_url}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "12px 8px",
+                  borderRadius: 12,
+                  textDecoration: "none",
+                  transition: "background 0.2s",
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 18,
+                    background: `linear-gradient(135deg, ${app.color || "#6366f1"}, ${app.color || "#6366f1"}dd)`,
+                    color: "#fff",
+                  }}
+                >
+                  {appIcons[app.icon] || "📱"}
+                </div>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "#cbd5e1",
+                    textAlign: "center",
+                    lineHeight: 1.3,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    maxWidth: "100%",
+                  }}
+                >
+                  {(app.name || "App").length > 16
+                    ? (app.name || "App").slice(0, 16) + "…"
+                    : app.name || "App"}
+                </span>
+              </a>
+            ))}
           </div>
         </div>
       )}

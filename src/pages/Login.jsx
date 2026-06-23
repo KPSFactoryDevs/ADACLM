@@ -124,6 +124,28 @@ export default function Login() {
               {loading ? "Accesso..." : "Accedi"}
             </button>
           </form>
+
+          {/* SSO KPS Suites */}
+          <div className="mt-6 pt-6 border-t border-neutral-100">
+            <p className="text-xs text-neutral-400 mb-3">Oppure accedi dalla console</p>
+            <a
+              href={import.meta.env.VITE_KPS_SUITES_URL || "http://localhost:8000"}
+              className="inline-flex items-center gap-2 h-10 px-5 rounded-xl border border-[#5b63ff]/20 bg-[#5b63ff]/5 text-[#5b63ff] text-sm font-medium hover:bg-[#5b63ff]/10 transition"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="5" cy="5" r="2" />
+                <circle cx="12" cy="5" r="2" />
+                <circle cx="19" cy="5" r="2" />
+                <circle cx="5" cy="12" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="19" cy="12" r="2" />
+                <circle cx="5" cy="19" r="2" />
+                <circle cx="12" cy="19" r="2" />
+                <circle cx="19" cy="19" r="2" />
+              </svg>
+              Accedi con KPS Suites
+            </a>
+          </div>
         </div>
       </div>
 
