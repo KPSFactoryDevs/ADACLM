@@ -4,6 +4,19 @@ import { SearchIcon, UploadIcon, DownloadIcon, TrashIcon } from "../components/u
 import { Badge } from "../components/ui/Badge";
 import { API_BASE } from "../lib/api";
 
+/* Build a download URL for a bilancio document from its filename */
+function getBilancioFileUrl(filename) {
+  if (!filename) return null;
+  try {
+    const url = new URL(API_BASE, window.location.origin);
+    // Bilanci are stored via Storage::disk('bilanci')->putFileAs('', file, name)
+    // bilanci disk root = public_path('bilanci') → web path /bilanci/{filename}
+    return `${url.origin}/bilanci/${filename}`;
+  } catch {
+    return `/bilanci/${filename}`;
+  }
+}
+
 function getToken() {
   try { return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; }
   catch { return null; }
@@ -262,7 +275,7 @@ export default function AnalisiBilancio() {
       </div>
 
       {/* Table Container */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white/90 backdrop-blur-md shadow-sm ring-1 ring-slate-100">
+      <div className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50/50 text-slate-500 font-semibold border-b border-slate-100">
@@ -330,7 +343,18 @@ export default function AnalisiBilancio() {
                         <button
                           className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
                           title="Scarica"
-                          onClick={() => window.open(r.raw?.path || "#", "_blank")}
+                          onClick={() => {
+                            const url = getBilancioFileUrl(r.raw?.filename);
+                            if (url) {
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = r.raw?.filename || 'bilancio';
+                              a.target = '_blank';
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                            }
+                          }}
                         >
                           <DownloadIcon className="w-4 h-4" />
                         </button>
@@ -374,7 +398,7 @@ export default function AnalisiBilancio() {
 
       {/* MODALE IMPORT */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm grid place-items-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 grid place-items-center p-4 animate-fade-in">
           <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-100 transform transition-all">
             <div className="flex justify-between items-center pb-4 border-b border-slate-100">
                <div>

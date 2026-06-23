@@ -2,6 +2,20 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../lib/api";
 
+/* Build a download URL for a CR document from its filename */
+function getCrFileUrl(filename) {
+  if (!filename) return null;
+  try {
+    const url = new URL(API_BASE, window.location.origin);
+    // CR files are stored via storeAs('centraleRischi', name, 'public')
+    // public disk root = public_path('centraleRischi') → web path /centraleRischi/
+    // storeAs subfolder 'centraleRischi' → /centraleRischi/centraleRischi/{filename}
+    return `${url.origin}/centraleRischi/centraleRischi/${filename}`;
+  } catch {
+    return `/centraleRischi/centraleRischi/${filename}`;
+  }
+}
+
 function getToken() {
   try { return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; } catch { return null; }
 }
@@ -200,7 +214,7 @@ export default function AnalisiCR() {
   return (
     <div className="space-y-6 pb-20 font-sans min-h-screen text-slate-800 animate-fade-in-up">
       {/* HERO SECTION */}
-      <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl p-6 md:p-8 shadow-sm ring-1 ring-slate-100 flex flex-col md:flex-row items-center md:items-start justify-between gap-6 transition-all">
+      <section className="bg-white border border-slate-200/60 rounded-2xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
         <div className="flex-1 w-full text-center md:text-left">
           <div className="text-sm text-[#5b63ff] font-semibold uppercase tracking-widest">AREA RISCHI</div>
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">
@@ -224,7 +238,7 @@ export default function AnalisiCR() {
       </section>
 
       {/* SEARCH E STATS HIGHLIGHT */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white/70 backdrop-blur-sm p-4 rounded-xl border border-slate-200/60 shadow-sm ring-1 ring-slate-100">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl border border-slate-200/60 shadow-sm">
         <div className="relative w-full md:w-[360px]">
           <span className="absolute inset-y-0 left-3 grid place-items-center text-slate-400">
             <SearchIcon />
@@ -245,7 +259,7 @@ export default function AnalisiCR() {
       </div>
 
       {/* TABLE SECTION */}
-      <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm ring-1 ring-slate-100">
+      <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-200">
@@ -327,7 +341,7 @@ export default function AnalisiCR() {
                         
                         <button
                           className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-sm transition-all"
-                          onClick={() => window.open(r.raw?.path || "#", "_blank")}
+                          onClick={() => navigate(`/analisi-cr/dettaglio/${r.codiceDocumento}`)}
                           title="Visualizza Documento"
                         >
                           <EyeIcon />
@@ -335,7 +349,20 @@ export default function AnalisiCR() {
                         
                         <button
                           className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-sm transition-all"
-                          onClick={() => window.open(r.raw?.path || "#", "_blank")}
+                          onClick={() => {
+                            const url = getCrFileUrl(r.raw?.filename);
+                            if (url) {
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = r.raw?.filename || 'documento_cr';
+                              a.target = '_blank';
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                            } else {
+                              showToast('error', 'File non disponibile per il download.');
+                            }
+                          }}
                           title="Scarica File"
                         >
                           <DownloadIcon />
@@ -383,7 +410,7 @@ export default function AnalisiCR() {
 
       {/* MODALE IMPORTA CR */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm grid place-items-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 grid place-items-center p-4 animate-fade-in">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-100 flex flex-col">
             <h3 className="text-xl font-bold text-slate-900">Importa Centrale Rischi</h3>
             <p className="mt-2 text-sm text-slate-500">
@@ -426,7 +453,7 @@ export default function AnalisiCR() {
 
       {/* MODALE CONFERMA ELIMINAZIONE */}
       {confirmDel && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm grid place-items-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 grid place-items-center p-4 animate-fade-in">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-100 text-center">
             <div className="w-14 h-14 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <TrashIcon />

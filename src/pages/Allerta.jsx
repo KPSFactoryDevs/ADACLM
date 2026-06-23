@@ -1,6 +1,6 @@
 // src/pages/Allerta.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { api } from "../lib/api";
+import { api, API_BASE } from "../lib/api";
 
 /** ---------- AS IS: gruppi + domande reali ---------- */
 const ASIS_GROUPS = [
@@ -186,6 +186,43 @@ export default function Allerta(){
 
   const show = (type,msg)=>{ setNotice({type,msg}); setTimeout(()=>setNotice(null), 2400); };
 
+  // Stampa Rapporto Formale PDF
+  const downloadReport = async () => {
+    try {
+      setSaving(true);
+      show("ok", "Generazione relazione formale in corso...");
+      // Fetch predefined documents
+      const [bilDocs, crDocs] = await Promise.all([
+        api("/getBilanciDocuments"),
+        api("/getCrDocuments"),
+      ]);
+      const bilPred = (bilDocs || []).find(d => d.predefinito == true || d.predefinito === 1 || d.predefinito === "1");
+      const crPred = (crDocs || []).find(d => d.predefinito == true || d.predefinito === 1 || d.predefinito === "1");
+      if (!bilPred || !crPred) {
+        show("err", "Imposta un Bilancio e una CR come predefiniti prima di stampare.");
+        return;
+      }
+      const auth = (() => { try { return JSON.parse(localStorage.getItem("authUser")); } catch { return null; } })();
+      const token = auth?.token || auth?.access_token || auth?.jwt || null;
+      const headers = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const companyId = localStorage.getItem("currentCompany");
+      if (companyId) headers["CurrentCompany"] = companyId;
+      const res = await fetch(`${API_BASE}/reportAllertaFormale/${bilPred.id}/${crPred.codice_documento || crPred.id}`, { headers });
+      if (!res.ok) throw new Error("Errore API");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+      show("ok", "Relazione generata.");
+    } catch (err) {
+      console.error(err);
+      show("err", err.message || "Errore durante la generazione del PDF");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => {
     const fetchQ = async () => {
        try {
@@ -274,6 +311,19 @@ export default function Allerta(){
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <button onClick={downloadReport} disabled={saving} className={`h-9 px-3 rounded-lg text-sm shadow-sm flex items-center gap-1.5 ${saving ? 'bg-slate-500 text-white/70 cursor-wait' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
+            {saving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Generazione in corso...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                Stampa Rapporto
+              </>
+            )}
+          </button>
           <button onClick={sendAsIs} disabled={saving} className="h-9 px-3 rounded-lg text-sm border border-neutral-300 hover:bg-neutral-50">Salva AS IS a DB</button>
           <button onClick={sendToBe} disabled={saving} className="h-9 px-3 rounded-lg text-sm border border-neutral-300 hover:bg-neutral-50">Salva TO BE a DB</button>
         </div>

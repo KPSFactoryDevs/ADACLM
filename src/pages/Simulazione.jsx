@@ -220,7 +220,7 @@ function ScoreRing({ value=0, size=120 }) {
 function KpiTile({ icon, label, value }) {
   const Icon = icon;
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white/60 backdrop-blur px-4 py-3 flex items-center gap-3">
+    <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 flex items-center gap-3">
       <div className="w-9 h-9 rounded-full grid place-items-center bg-neutral-900 text-white"><Icon /></div>
       <div>
         <div className="text-xs text-neutral-500">{label}</div>
@@ -234,7 +234,7 @@ function KpiTile({ icon, label, value }) {
 function KpiContestazioni({ value=0 }) {
   const ok = Number(value) === 0;
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white/60 backdrop-blur px-4 py-3 flex items-center justify-between">
+    <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-full grid place-items-center text-white" style={{background: ok ? "#16a34a" : "#dc2626"}}>
           {ok ? <Check/> : <X/>}
@@ -259,7 +259,7 @@ function BankAvatar({ name, code, logo }) {
 function AvatarsStack({ items }){ return <div className="flex -space-x-2">{items.slice(0,6).map((b,i)=><BankAvatar key={i} {...b} />)}</div>; }
 function IntermediariTile({ items, total, onClick }){
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white/60 backdrop-blur px-4 py-3 flex items-center justify-between">
+    <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 flex items-center justify-between">
       <div>
         <div className="text-xs text-neutral-500">Intermediari</div>
         <div className="mt-1 flex items-center gap-3">

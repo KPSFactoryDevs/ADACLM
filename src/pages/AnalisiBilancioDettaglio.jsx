@@ -85,6 +85,83 @@ const Q_MAP = {
   forn: "Debiti verso Fornitori",
 };
 
+/* ---------- Scoring Engine Bilancio ----------
+ * Pesi:
+ *   Indici Basic  (CNDC)        → max 45 pt
+ *   Indici Advanced              → max 25 pt
+ *   Questionari Allerta          → max 20 pt
+ *   Completezza dati             → max 10 pt
+ * Totale                         → max 100 pt
+ */
+function computeBilancioScore(indiciBasic, indiciAdvanced, alertStatusMap) {
+  // ── 1) Indici Basic (45 pt) ──
+  const basicItems = indiciBasic.length > 0 ? indiciBasic.slice(0, -1) : [];
+  const basicSummary = indiciBasic.length > 0 ? indiciBasic.at(-1) : null;
+
+  let basicEvaluable = 0, basicOk = 0;
+  for (const r of basicItems) {
+    if (r.missing || r.fuori === "N/A") continue;
+    basicEvaluable++;
+    const f = String(r.fuori).toLowerCase();
+    if (f === "no") basicOk++;
+  }
+
+  let summaryWeight = 0, summaryOk = 0;
+  if (basicSummary && !basicSummary.missing) {
+    const note = String(basicSummary.note ?? "").toLowerCase();
+    summaryWeight = 2;
+    if (note.includes("non a rischio") || note.includes("non rischio")) {
+      summaryOk = 2;
+    } else if (note.includes("rischio")) {
+      summaryOk = 0;
+    } else {
+      const f = String(basicSummary.fuori).toLowerCase();
+      summaryOk = f === "no" ? 2 : 0;
+    }
+  }
+
+  const basicTotal = basicEvaluable + summaryWeight;
+  const basicScore = basicTotal > 0
+    ? ((basicOk + summaryOk) / basicTotal) * 45
+    : 0;
+
+  // ── 2) Indici Advanced (25 pt) ──
+  let advEvaluable = 0, advOk = 0;
+  for (const r of indiciAdvanced) {
+    if (r.missing || r.fuori === "N/A") continue;
+    advEvaluable++;
+    const f = String(r.fuori).toLowerCase();
+    if (f === "no") advOk++;
+  }
+  const advScore = advEvaluable > 0
+    ? (advOk / advEvaluable) * 25
+    : 0;
+
+  // ── 3) Questionari Allerta (20 pt) ──
+  const qIds = ["ade", "inps", "risc", "retrib", "forn"];
+  let qPoints = 0;
+  let qEvaluable = 0;
+  for (const qid of qIds) {
+    const status = alertStatusMap?.[qid];
+    if (!status || status === "missing") continue;
+    qEvaluable++;
+    if (status === "ok") qPoints += 4;
+  }
+  const qScore = qPoints; // max 20
+
+  // ── 4) Completezza dati (10 pt) ──
+  const totalIndices = basicItems.length + indiciAdvanced.length;
+  const totalMissing = basicItems.filter(r => r.missing).length + indiciAdvanced.filter(r => r.missing).length;
+  const totalCompiled = totalIndices - totalMissing;
+  const dataCompleteness = totalIndices > 0 ? (totalCompiled / totalIndices) : 0;
+  const qCompleteness = qIds.length > 0 ? (qEvaluable / qIds.length) : 0;
+  const completenessScore = (dataCompleteness * 6) + (qCompleteness * 4); // max 10
+
+  // ── Totale ──
+  const raw = basicScore + advScore + qScore + completenessScore;
+  return Math.max(0, Math.min(100, Math.round(raw)));
+}
+
 const classify = (score)=> SCALE.find(s=>score>=s.min) || SCALE.at(-1);
 const fmtPerc = (v) => v==null ? "N/A" : (v).toLocaleString("it-IT",{maximumFractionDigits:2}) + "%";
 const load = (k, def) => { try { const r = localStorage.getItem(k); return r?JSON.parse(r):def; } catch { return def; } };
@@ -131,9 +208,9 @@ const SkCircle = ({ size=96 }) => (
 function FullPageLoader({ show }) {
   if (!show) return null;
   return (
-    <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm grid place-items-center animate-fade-in" role="status">
+    <div className="fixed inset-0 z-[60] bg-slate-900/50 grid place-items-center animate-fade-in" role="status">
       <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-2xl shadow-xl">
-        <div className="h-10 w-10 border-4 border-slate-100 border-t-[#5b63ff] rounded-full animate-spin" />
+        <div className="h-10 w-10 border-4 border-slate-100 border-t-[#5b63ff] rounded-full animate-spin" style={{ willChange: 'transform' }} />
         <div className="text-sm font-semibold text-slate-700">Elaborazione bilancio in corso...</div>
       </div>
     </div>
@@ -152,9 +229,10 @@ export default function AnalisiBilancioDettaglio() {
   const [toast, setToast] = useState(null); 
   const [nomeAzienda, setNomeAzienda] = useState(null);
 
-  // score UI
-  const [score, setScore] = useState(78);
-  const rating = classify(score);
+  // score UI – calcolato dinamicamente da indici e questionari
+  const [score, setScore] = useState(null);
+  const [backendScoreOverride, setBackendScoreOverride] = useState(null);
+  const rating = classify(score ?? 0);
 
   // indici UI (persist per documento)
   const [indici, setIndici] = useState(()=> load(keyFor("indici", initialDocId), []));
@@ -194,10 +272,11 @@ export default function AnalisiBilancioDettaglio() {
     setRecap(payload);
     setNomeAzienda(payload?.nome_azienda ?? null);
 
+    // Se il backend manda uno score esplicito, lo usiamo come override
     const maybeScore = payload?.bilancioAnalisi?.Score ?? payload?.bilancioAnalisi?.score ?? null;
     if (maybeScore != null) {
       const s = parseNum(maybeScore);
-      if (s != null) setScore(Math.max(0, Math.min(100, Math.round(s))));
+      if (s != null) setBackendScoreOverride(Math.max(0, Math.min(100, Math.round(s))));
     }
 
     const missingMap = {};
@@ -303,6 +382,39 @@ export default function AnalisiBilancioDettaglio() {
     }
     return out;
   }, [qFlags]);
+
+  // ── Analisi completezza dati per l'indicatore visivo ──
+  const incompleteness = useMemo(() => {
+    const issues = [];
+    // Indici basic mancanti
+    const missingBasic = indici.filter(r => r.missing);
+    if (missingBasic.length > 0) {
+      issues.push(`${missingBasic.length} indic${missingBasic.length === 1 ? 'e primario mancante' : 'i primari mancanti'}`);
+    }
+    // Indici advanced mancanti
+    const missingAdv = indiciAdvanced.filter(r => r.missing);
+    if (missingAdv.length > 0) {
+      issues.push(`${missingAdv.length} indic${missingAdv.length === 1 ? 'e avanzato mancante' : 'i avanzati mancanti'}`);
+    }
+    // Questionari non compilati
+    const qIds = ["ade", "inps", "risc", "retrib", "forn"];
+    const missingQ = qIds.filter(qid => !alertStatus[qid] || alertStatus[qid] === "missing");
+    if (missingQ.length > 0) {
+      issues.push(`${missingQ.length} questionari${missingQ.length === 1 ? 'o allerta non compilato' : ' allerta non compilati'}`);
+    }
+    return { incomplete: issues.length > 0, issues };
+  }, [indici, indiciAdvanced, alertStatus]);
+
+  // ── Ricalcola lo score ogni volta che cambiano i dati ──
+  useEffect(() => {
+    if (backendScoreOverride != null) {
+      setScore(backendScoreOverride);
+      return;
+    }
+    if (indici.length === 0 && indiciAdvanced.length === 0) return;
+    const computed = computeBilancioScore(indici, indiciAdvanced, alertStatus);
+    setScore(computed);
+  }, [indici, indiciAdvanced, alertStatus, backendScoreOverride]);
 
   const saveQuestionari = async () => {
     try {
@@ -418,27 +530,27 @@ export default function AnalisiBilancioDettaglio() {
   const labelsMap = recap?.bilancioAnalisi?.labels || {};
   const openQuestionario = (id) => setQModal(id);
 
+  const [pdfLoading, setPdfLoading] = useState(false);
+
   const downloadReport = async () => {
     if (!docId) return;
     try {
-      showToast("info", "Generazione report in corso...");
-      const res = await fetch(`${API_BASE}/reportBasicPDF/${docId}`, {
+      setPdfLoading(true);
+      showToast("info", "Generazione relazione formale in corso...");
+      const res = await fetch(`${API_BASE}/reportBilancioFormale/${docId}`, {
         headers: commonHeaders()
       });
       if (!res.ok) throw new Error("Errore API");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Relazione_Bilancio_${docId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => window.URL.revokeObjectURL(url), 5000);
-      showToast("success", "Report scaricato.");
+      window.open(url, "_blank");
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+      showToast("success", "Relazione generata.");
     } catch (err) {
       console.error(err);
       showToast("error", "Errore durante la generazione del PDF");
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -450,7 +562,7 @@ export default function AnalisiBilancioDettaglio() {
       </Link>
       
       {/* HERO SECTION */}
-      <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl p-6 shadow-sm ring-1 ring-slate-100 flex flex-col xl:flex-row items-center xl:items-stretch gap-6 transition-all">
+      <section className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col xl:flex-row items-center xl:items-stretch gap-6">
         <div className="shrink-0 flex items-center justify-center pt-2 xl:pt-0 xl:pr-6 xl:border-r border-slate-100">
           <div className="text-center group">
             {loading ? (
@@ -459,7 +571,61 @@ export default function AnalisiBilancioDettaglio() {
                 <div className="mt-3"><SkLine w={90} h={12} className="mx-auto" /></div>
               </>
             ) : (
-              <Gauge value={score} color={rating.color} size={150} stroke={14} label="Scoring" subtitle="su 100" />
+              <div className="relative">
+                {/* Anello arancione esterno quando dati incompleti */}
+                {incompleteness.incomplete && (
+                  <svg
+                    width={174} height={174}
+                    viewBox="0 0 174 174"
+                    className="absolute -top-[12px] -left-[12px] pointer-events-none"
+                    style={{ zIndex: 1 }}
+                  >
+                    <circle
+                      cx={87} cy={87} r={83}
+                      stroke="#f59e0b" strokeWidth={3} fill="none"
+                      strokeDasharray="8 6" opacity={0.7}
+                      className="animate-[spin_18s_linear_infinite]"
+                      style={{ transformOrigin: '87px 87px' }}
+                    />
+                  </svg>
+                )}
+                <Gauge value={score ?? 0} color={rating.color} size={150} stroke={14} label="Scoring" subtitle="su 100" />
+                {/* Badge warning con tooltip */}
+                {incompleteness.incomplete && (
+                  <div className="absolute -top-1 -right-1 z-10 group/warn">
+                    <div className="w-7 h-7 rounded-full bg-amber-400 border-2 border-white shadow-md flex items-center justify-center cursor-help transition-transform hover:scale-110">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 9v4" />
+                        <path d="M12 17h.01" />
+                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      </svg>
+                    </div>
+                    {/* Tooltip */}
+                    <div className="invisible group-hover/warn:visible opacity-0 group-hover/warn:opacity-100 transition-all duration-200 absolute top-full right-0 mt-2 w-64 bg-slate-900 text-white text-xs rounded-xl p-3 shadow-xl z-50">
+                      <div className="font-bold text-amber-300 mb-1.5 flex items-center gap-1.5">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 9v4" /><path d="M12 17h.01" />
+                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        </svg>
+                        Punteggio parziale
+                      </div>
+                      <div className="text-slate-300 leading-relaxed">
+                        Lo score potrebbe non riflettere la situazione reale. Completa i dati mancanti per un giudizio preciso:
+                      </div>
+                      <ul className="mt-2 space-y-1">
+                        {incompleteness.issues.map((issue, i) => (
+                          <li key={i} className="flex items-start gap-1.5">
+                            <span className="text-amber-400 mt-0.5">•</span>
+                            <span>{issue}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {/* Freccia tooltip */}
+                      <div className="absolute -top-1 right-4 w-2 h-2 bg-slate-900 rotate-45" />
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -489,12 +655,22 @@ export default function AnalisiBilancioDettaglio() {
                 <>
                   <button
                     onClick={downloadReport}
-                    className="h-10 px-5 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all flex items-center gap-2 print:hidden"
+                    disabled={pdfLoading}
+                    className={`h-10 px-5 rounded-xl border text-sm font-semibold shadow-sm transition-all flex items-center gap-2 print:hidden ${pdfLoading ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-wait' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'}`}
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                    </svg>
-                    Stampa Relazione
+                    {pdfLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+                        Generazione in corso...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                        Stampa Relazione
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={()=>setPreviewOpen(true)}
@@ -513,7 +689,7 @@ export default function AnalisiBilancioDettaglio() {
       {/* INDICI + ALERT GRIDS */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Indici Basic */}
-        <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm ring-1 ring-slate-100 flex flex-col">
+        <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm flex flex-col">
           <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent flex items-center justify-between">
             <h2 className="font-bold text-slate-800 flex items-center gap-2">
               <div className="w-1.5 h-4 bg-[#5b63ff] rounded-full"></div>
@@ -548,7 +724,7 @@ export default function AnalisiBilancioDettaglio() {
                     const kind = v.includes('Azienda NON a Rischio') ? 'ok'
                                 : v.includes('Azienda a Rischio') ? 'bad' : undefined;
                     return (
-                      <tr key={r.id} className="hover:bg-slate-50/80 transition-colors group">
+                      <tr key={r.id} className="hover:bg-slate-50/80 group">
                         <td className={`px-6 py-4 font-medium ${r.missing ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>{r.nome}</td>
                         <td className="px-6 py-4">
                           {!r.missing ? (
@@ -585,7 +761,7 @@ export default function AnalisiBilancioDettaglio() {
         </section>
 
         {/* Questionari (Alert) */}
-        <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm ring-1 ring-slate-100 flex flex-col">
+        <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm flex flex-col">
           <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent">
             <h2 className="font-bold text-slate-800 flex items-center gap-2">
               <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full"></div>
@@ -615,7 +791,7 @@ export default function AnalisiBilancioDettaglio() {
                     const s = alertStatus[a.id] || "missing";
                     const qVal = qFlags?.[Q_MAP[a.id]];
                     return (
-                      <tr key={a.id} className="hover:bg-slate-50/80 transition-colors group">
+                      <tr key={a.id} className="hover:bg-slate-50/80 group">
                         <td className="px-6 py-4 font-medium text-slate-700">{a.label}</td>
                         <td className="px-6 py-4">
                           <StatusIcon kind={s}/>
@@ -652,7 +828,7 @@ export default function AnalisiBilancioDettaglio() {
 
       <div className="grid grid-cols-1 gap-6 mt-6">
         {/* Indici Advanced */}
-        <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm ring-1 ring-slate-100">
+        <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm">
           <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent">
             <h2 className="font-bold text-slate-800 flex items-center gap-2">
               <div className="w-1.5 h-4 bg-teal-500 rounded-full"></div>
@@ -679,7 +855,7 @@ export default function AnalisiBilancioDettaglio() {
                   ))
                 ) : (
                   indiciAdvanced.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50/80 transition-colors group">
+                    <tr key={r.id} className="hover:bg-slate-50/80 group">
                       <td className={`px-6 py-4 font-medium ${r.missing ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>{r.nome}</td>
                       <td className="px-6 py-4">
                         {!r.missing ? (
@@ -730,8 +906,8 @@ export default function AnalisiBilancioDettaglio() {
 
       {/* MODALE: VALORI MANCANTI ========================================================= */}
       {modalVoci && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 grid place-items-center p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl w-full max-w-5xl flex flex-col shadow-2xl ring-1 ring-slate-100 max-h-[90vh]">
+        <div className="fixed inset-0 bg-slate-900/50 z-50 grid place-items-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-5xl flex flex-col shadow-2xl max-h-[90vh]">
             <div className="p-6 border-b border-slate-100">
               <h3 className="text-xl font-bold text-slate-800">{modalVoci.nome}</h3>
               <p className="text-sm text-slate-500 mt-1 font-medium">
@@ -800,7 +976,7 @@ export default function AnalisiBilancioDettaglio() {
 
       {/* MODALE: ANTEPRIMA BILANCIO ========================================================= */}
       {previewOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 grid place-items-center p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-slate-900/50 z-50 grid place-items-center p-4 animate-fade-in">
           <div className="bg-white rounded-2xl border border-slate-100 w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
               <h3 className="text-xl font-bold text-slate-800">Visualizzatore Anteprima XBRL</h3>
@@ -823,8 +999,8 @@ export default function AnalisiBilancioDettaglio() {
 
       {/* MODALE: QUESTIONARI ========================================================= */}
       {qModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 grid place-items-center p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl w-full max-w-2xl flex flex-col flex-1 max-h-[90vh] shadow-2xl ring-1 ring-slate-100">
+        <div className="fixed inset-0 bg-slate-900/50 z-50 grid place-items-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-2xl flex flex-col flex-1 max-h-[90vh] shadow-2xl">
             <div className="p-6 border-b border-slate-100">
               <div className="text-sm font-bold text-[#f59e0b] uppercase tracking-widest mb-1">Questionario Qualitativo</div>
               <h3 className="text-2xl font-extrabold text-slate-800">{Q_MAP[qModal]}</h3>

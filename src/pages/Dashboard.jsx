@@ -84,6 +84,85 @@ const IconCircle = ({ children }) => (
   </div>
 );
 
+/* ── Scala orizzontale Allerta ── */
+const ALLERTA_SCALE = [
+  { label: "Fragile",       color: "#ef4444", keywords: ["fragil", "critico", "elevato"] },
+  { label: "Molto debole",  color: "#f97316", keywords: ["molto debole", "molto deb"] },
+  { label: "Debole",        color: "#f59e0b", keywords: ["debole", "alert", "attenzione"] },
+  { label: "Neutro",        color: "#a3a3a3", keywords: ["neutro", "nella media", "medio"] },
+  { label: "Buono",         color: "#4ade80", keywords: ["buon"] },
+  { label: "Molto buono",   color: "#22c55e", keywords: ["molto buon", "ottim"] },
+  { label: "Solido",        color: "#16a34a", keywords: ["solid", "eccellent", "miglior"] },
+];
+
+function matchScaleIndex(word) {
+  if (!word || word === "N/A") return -1;
+  const w = word.toLowerCase();
+  for (let i = 0; i < ALLERTA_SCALE.length; i++) {
+    for (const kw of ALLERTA_SCALE[i].keywords) {
+      if (w.includes(kw)) return i;
+    }
+  }
+  // fallback: prova corrispondenza esatta label
+  for (let i = 0; i < ALLERTA_SCALE.length; i++) {
+    if (w.includes(ALLERTA_SCALE[i].label.toLowerCase())) return i;
+  }
+  return -1;
+}
+
+function AllertaScale({ currentWord }) {
+  const activeIdx = matchScaleIndex(currentWord);
+
+  return (
+    <div className="mt-5 w-full">
+      <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Scala di valutazione</div>
+      <div className="flex items-stretch gap-1 w-full">
+        {ALLERTA_SCALE.map((level, i) => {
+          const isActive = i === activeIdx;
+          return (
+            <div key={level.label} className="flex-1 flex flex-col items-center relative group">
+              {/* Segmento barra */}
+              <div
+                className="w-full rounded-md transition-all duration-500"
+                style={{
+                  height: isActive ? 14 : 10,
+                  backgroundColor: level.color,
+                  opacity: isActive ? 1 : (activeIdx === -1 ? 0.35 : 0.25),
+                  boxShadow: isActive ? `0 2px 12px ${level.color}55` : "none",
+                }}
+              />
+              {/* Marker attivo */}
+              {isActive && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex flex-col items-center animate-fade-in">
+                  <div
+                    className="w-5 h-5 rounded-full border-[3px] border-white shadow-lg flex items-center justify-center"
+                    style={{ backgroundColor: level.color }}
+                  >
+                    <div
+                      className="w-2 h-2 rounded-full bg-white animate-pulse"
+                    />
+                  </div>
+                </div>
+              )}
+              {/* Label */}
+              <div
+                className="mt-2 text-center transition-all duration-300 leading-tight"
+                style={{
+                  fontSize: isActive ? 11 : 10,
+                  fontWeight: isActive ? 800 : 500,
+                  color: isActive ? level.color : "#94a3b8",
+                }}
+              >
+                {level.label}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [user] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sb_user")) || { name: "Utente" }; }
@@ -93,6 +172,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [noDefault, setNoDefault] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -198,7 +278,7 @@ export default function Dashboard() {
           <p className="mt-1 text-slate-500">È richiesta un'azione per sbloccare la dashboard.</p>
         </div>
 
-        <section className="bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200/60 p-10 text-center shadow-sm ring-1 ring-slate-100 flex flex-col items-center justify-center">
+        <section className="bg-white rounded-2xl border border-slate-200/60 p-10 text-center shadow-sm flex flex-col items-center justify-center">
             <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-6 shadow-sm">
                <AlertIcon className="w-10 h-10" />
             </div>
@@ -252,25 +332,23 @@ export default function Dashboard() {
       return;
     }
     try {
+      setPdfLoading(true);
       const token = getToken();
       const headers = { "Authorization": `Bearer ${token}` };
       const companyId = getCurrentCompanyId();
       if (companyId) headers["CurrentCompany"] = companyId;
 
-      const res = await fetch(`${API_BASE}/reportAllerta/${data.bilancioId}/${data.crId}`, { headers });
+      const res = await fetch(`${API_BASE}/reportAllertaFormale/${data.bilancioId}/${data.crId}`, { headers });
       if (!res.ok) throw new Error("Errore API");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Report_Allerta.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+      window.open(url, "_blank");
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
     } catch (err) {
       console.error(err);
       alert("Errore durante la generazione del PDF");
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -300,17 +378,27 @@ export default function Dashboard() {
         </div>
         <button
           onClick={downloadReport}
-          className="h-10 px-5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 shadow-md hover:shadow-lg transition-all flex items-center gap-2 print:hidden shrink-0"
+          disabled={pdfLoading}
+          className={`h-10 px-5 rounded-xl text-white text-sm font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2 print:hidden shrink-0 ${pdfLoading ? 'bg-slate-500 cursor-wait' : 'bg-slate-900 hover:bg-slate-800'}`}
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-          </svg>
-          Stampa Rapporto
+          {pdfLoading ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              Generazione in corso...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              Stampa Rapporto
+            </>
+          )}
         </button>
       </div>
 
       {/* RIGA 1 — Allerta Principale */}
-      <section className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/50 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-slate-100 transition duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+      <section className="bg-white rounded-2xl border border-slate-200/60 p-6 shadow-sm transition duration-300 hover:shadow-md">
         <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
           <div className="flex-1 w-full">
             <div className="text-sm font-semibold text-slate-500 uppercase tracking-widest">Giudizio Allerta Globale</div>
@@ -322,6 +410,9 @@ export default function Dashboard() {
               Basato su algoritmi proprietari che analizzano l'ultimo bilancio depositato, 
               le segnalazioni in Centrale Rischi e l'esito dei questionari qualitativi.
             </p>
+
+            {/* ── Scala orizzontale ── */}
+            <AllertaScale currentWord={finalScoreWord} />
             
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
@@ -354,7 +445,7 @@ export default function Dashboard() {
       </section>
 
       {/* === Analisi per area ======================================== */}
-      <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden ring-1 ring-slate-100">
+      <section className="bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent">
           <h2 className="font-bold text-slate-800 flex items-center gap-2">
             <div className="w-1.5 h-4 bg-[#5b63ff] rounded-full"></div>

@@ -1,5 +1,5 @@
 // src/pages/CentraleRischiDettaglio.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   ResponsiveContainer,
   LineChart, Line,
@@ -227,7 +227,7 @@ period = id,  // se lo passi, override
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
   const [data, setData]       = useState(() => parseStateFromApi({}));
-  const [docOpen, setDocOpen] = useState(false); // modale documento
+  const [intermediariOpen, setIntermediariOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("sintesi");
 
   useEffect(() => {
@@ -314,29 +314,64 @@ period = id,  // se lo passi, override
     return { rows: Array.from(bancaMap.values()), cats };
   }, [affiRows]);
 
+  // --- Memoized chart data for Posizioni Rischi bar chart
+  const posizioniBarData = useMemo(() => [
+    {
+      label: "Gestibili",
+      scaduti: Number(POSIZIONI_RISCHI?.gestibili?.scaduti || 0),
+      impagati: Number(POSIZIONI_RISCHI?.gestibili?.impagati || 0),
+      sconfinati90: Number(POSIZIONI_RISCHI?.gestibili?.sconfinati90 || 0),
+    },
+    {
+      label: "Quasi pregiud.",
+      sconfinati_90_180: Number(POSIZIONI_RISCHI?.quasiPregiud?.sconfinati90_180 || 0),
+      sconfinati_180: Number(POSIZIONI_RISCHI?.quasiPregiud?.sconfinati180 || 0),
+    },
+    {
+      label: "Pregiudizievoli",
+      sofferenzeRispetto: Number(POSIZIONI_RISCHI?.pregiud?.sofferenzeRispetto || 0),
+      sofferenzeAPerd: Number(POSIZIONI_RISCHI?.pregiud?.sofferenzeAPerd || 0),
+      contestati: Number(POSIZIONI_RISCHI?.pregiud?.contestati || 0),
+    },
+  ], [POSIZIONI_RISCHI]);
+
+  // --- Memoized chart data for scaglioni bar chart
+  const scaglioniBarData = useMemo(() => [
+    { fascia: "<30gg", valore: 12000 },
+    { fascia: "30–60", valore: 9000 },
+    { fascia: "60–90", valore: 5000 },
+    { fascia: ">90", valore: Number(POSIZIONI_RISCHI?.quasiPregiud?.sconfinati90_180 || 0) },
+  ], [POSIZIONI_RISCHI]);
+
+  // --- Static chart data (memoized once)
+  const trendEsempioData = useMemo(() => [
+    { m:"Gen", v: 10 },{ m:"Feb", v: 14 },{ m:"Mar", v: 13 },
+    { m:"Apr", v: 16 },{ m:"Mag", v: 15 },{ m:"Giu", v: 17 },
+  ], []);
+
+  const [pdfLoading, setPdfLoading] = useState(false);
+
   const downloadReport = async () => {
     if (!effectivePeriod) return;
     try {
+      setPdfLoading(true);
       const auth = (() => { try { return JSON.parse(localStorage.getItem("authUser")); } catch { return null; } })();
       const token = auth?.token || auth?.access_token || auth?.jwt || null;
       const headers = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
       const companyId = localStorage.getItem("currentCompany");
       if (companyId) headers["CurrentCompany"] = companyId;
-      const res = await fetch(`${API_BASE}/reportAndamentale/${effectivePeriod}`, { headers });
+      const res = await fetch(`${API_BASE}/reportCRFormale/${effectivePeriod}`, { headers });
       if (!res.ok) throw new Error("Errore API");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Relazione_CR_${effectivePeriod}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+      window.open(url, "_blank");
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
     } catch (err) {
       console.error(err);
       alert("Errore durante la generazione del PDF");
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -367,7 +402,7 @@ period = id,  // se lo passi, override
       </a>
 
       {/* === HERO PANORAMICA ======================================= */}
-      <section className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl p-6 shadow-sm ring-1 ring-slate-100 flex flex-col xl:flex-row items-center xl:items-stretch gap-6 transition-all">
+      <section className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col xl:flex-row items-center xl:items-stretch gap-6">
         <div className="shrink-0 flex items-center justify-center pt-2 xl:pt-0 xl:pr-6 xl:border-r border-slate-100">
           <ScoreRing value={Number(PANORAMICA.score)||0} />
         </div>
@@ -393,16 +428,26 @@ period = id,  // se lo passi, override
               <IntermediariTile
                 items={INTERMEDIARI}
                 total={INTERMEDIARI.length || PANORAMICA.numIntermediari || 0}
-                onOpenDoc={() => setDocOpen(true)}
+                onOpen={() => setIntermediariOpen(true)}
               />
               <button
                 onClick={downloadReport}
-                className="h-[46px] px-5 rounded-xl bg-slate-900 border border-slate-900 text-white text-sm font-semibold hover:bg-slate-800 shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 print:hidden"
+                disabled={pdfLoading}
+                className={`h-[46px] px-5 rounded-xl border text-sm font-semibold shadow-md transition-all flex items-center justify-center gap-2 print:hidden ${pdfLoading ? 'bg-slate-500 border-slate-500 text-white/70 cursor-wait' : 'bg-slate-900 border-slate-900 text-white hover:bg-slate-800 hover:shadow-lg'}`}
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-                Stampa Relazione
+                {pdfLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Generazione in corso...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Stampa Relazione
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -656,25 +701,7 @@ period = id,  // se lo passi, override
           <div className="h-72 border border-neutral-200 rounded-xl p-3">
             <div className="text-sm font-medium mb-2">Distribuzione per Classe</div>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={[
-                {
-                  label: "Gestibili",
-                  scaduti: Number(POSIZIONI_RISCHI?.gestibili?.scaduti || 0),
-                  impagati: Number(POSIZIONI_RISCHI?.gestibili?.impagati || 0),
-                  sconfinati90: Number(POSIZIONI_RISCHI?.gestibili?.sconfinati90 || 0),
-                },
-                {
-                  label: "Quasi pregiud.",
-                  sconfinati_90_180: Number(POSIZIONI_RISCHI?.quasiPregiud?.sconfinati90_180 || 0),
-                  sconfinati_180: Number(POSIZIONI_RISCHI?.quasiPregiud?.sconfinati180 || 0),
-                },
-                {
-                  label: "Pregiudizievoli",
-                  sofferenzeRispetto: Number(POSIZIONI_RISCHI?.pregiud?.sofferenzeRispetto || 0),
-                  sofferenzeAPerd: Number(POSIZIONI_RISCHI?.pregiud?.sofferenzeAPerd || 0),
-                  contestati: Number(POSIZIONI_RISCHI?.pregiud?.contestati || 0),
-                },
-              ]}>
+              <BarChart data={posizioniBarData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="label" />
                 <YAxis />
@@ -746,11 +773,8 @@ period = id,  // se lo passi, override
         <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card title="Trend sintetico (esempio)">
             <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={[
-                  { m:"Gen", v: 10 },{ m:"Feb", v: 14 },{ m:"Mar", v: 13 },
-                  { m:"Apr", v: 16 },{ m:"Mag", v: 15 },{ m:"Giu", v: 17 },
-                ]}>
+               <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendEsempioData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="m" />
                   <YAxis />
@@ -765,12 +789,7 @@ period = id,  // se lo passi, override
           <Card title="Ripartizione scaglioni scaduto (esempio)">
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={[
-                  { fascia: "<30gg", valore: 12000 },
-                  { fascia: "30–60", valore: 9000 },
-                  { fascia: "60–90", valore: 5000 },
-                  { fascia: ">90", valore: (Number(POSIZIONI_RISCHI?.quasiPregiud?.sconfinati90_180||0)) },
-                ]}>
+                <BarChart data={scaglioniBarData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="fascia" />
                   <YAxis />
@@ -808,29 +827,37 @@ period = id,  // se lo passi, override
       {/* loader "extra" come nel file originale */}
       <FullPageLoader show={loading} />
 
-      {/* === MODALE DOCUMENTO (placeholder) === */}
-      {docOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 grid place-items-center p-4" onClick={()=>setDocOpen(false)}>
-          <div className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-lg" onClick={e=>e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-semibold">Documento Centrale Rischi</div>
-              <button onClick={()=>setDocOpen(false)} className="text-sm text-neutral-500 hover:text-neutral-700">Chiudi</button>
-            </div>
-            <div className="mt-3 text-sm text-neutral-600">
-              Qui verrà visualizzato il documento della Centrale Rischi (placeholder).
-            </div>
-            {PANORAMICA?.docUrl && (
-              <div className="mt-4">
-                <a
-                  href={PANORAMICA.docUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-neutral-300 hover:bg-neutral-50 text-sm"
-                >
-                  Apri in nuova scheda
-                </a>
+      {/* === MODALE INTERMEDIARI === */}
+      {intermediariOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 grid place-items-center p-4" onClick={() => setIntermediariOpen(false)}>
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl ring-1 ring-slate-100" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <div className="text-lg font-bold text-slate-900">Intermediari Trovati</div>
+                <div className="text-sm text-slate-500 mt-0.5">{INTERMEDIARI.length} istituti rilevati nel documento</div>
               </div>
-            )}
+              <button onClick={() => setIntermediariOpen(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              </button>
+            </div>
+            <div className="p-4 max-h-[60vh] overflow-auto">
+              {INTERMEDIARI.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-sm">Nessun intermediario rilevato.</div>
+              ) : (
+                <div className="space-y-2">
+                  {INTERMEDIARI.map((b, i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                      <BankAvatar name={b.name} code={b.code} />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-slate-800 text-sm truncate">{b.name}</div>
+                        <div className="text-xs text-slate-400 mt-0.5">Codice: {b.code}</div>
+                      </div>
+                      <div className="text-xs font-bold text-slate-300 uppercase">#{i + 1}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -841,7 +868,7 @@ period = id,  // se lo passi, override
 /* ----------------- Sub-components ----------------- */
 function Card({ title, subtitle, right, children, className="" }) {
   return (
-    <section className={`bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl shadow-sm ring-1 ring-slate-100 ${className}`}>
+    <section className={`bg-white border border-slate-200/60 rounded-2xl shadow-sm ${className}`}>
       <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent flex items-center justify-between">
         <div>
           <h2 className="font-bold text-slate-800 flex items-center gap-2">
@@ -890,7 +917,7 @@ function Table({ cols, rows, empty = "Nessun dato", dense=false }) {
 function KpiTile({ icon, label, value }) {
   const Icon = icon;
   return (
-    <div className="rounded-xl border border-slate-200/60 bg-white/60 backdrop-blur px-5 py-3.5 flex items-center gap-3 shadow-sm">
+    <div className="rounded-xl border border-slate-200/60 bg-white px-5 py-3.5 flex items-center gap-3 shadow-sm">
       <div className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 text-[#5b63ff]">
         <Icon />
       </div>
@@ -905,7 +932,7 @@ function KpiTile({ icon, label, value }) {
 function KpiTileTwo({ icon, label }) {
   const Icon = icon;
   return (
-    <div className="rounded-xl border border-slate-200/60 bg-white/60 backdrop-blur px-5 py-3.5 flex items-center gap-3 shadow-sm">
+    <div className="rounded-xl border border-slate-200/60 bg-white px-5 py-3.5 flex items-center gap-3 shadow-sm">
       <div className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 text-[#5b63ff]">
         <Icon />
       </div>
@@ -980,10 +1007,10 @@ function colorFromString(s) {
   return palette[Math.abs(h) % palette.length];
 }
 
-function IntermediariTile({ items, total, onClick }) {
+function IntermediariTile({ items, total, onOpen }) {
   const tot = total || items?.length || 0;
   return (
-    <div className="rounded-xl border border-slate-200/60 bg-white/60 backdrop-blur px-5 py-3.5 flex items-center justify-between gap-4 shadow-sm">
+    <div className="rounded-xl border border-slate-200/60 bg-white px-5 py-3.5 flex items-center justify-between gap-4 shadow-sm">
       <div>
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest truncate mb-1.5">Intermediari Trovati</div>
         <div className="mt-1 flex items-center gap-3">
@@ -995,7 +1022,7 @@ function IntermediariTile({ items, total, onClick }) {
       </div>
       <div className="flex items-center">
         <button
-          onClick={onClick ?? (() => alert("Elenco intermediari"))}
+          onClick={onOpen ?? (() => {})}
           className="h-8 px-3.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-50 shadow-sm transition-all"
         >
           Vedi tutti
@@ -1188,9 +1215,9 @@ function KpiBox({ label, value }) {
 function FullPageLoader({ show }) {
   if (!show) return null;
   return (
-    <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm grid place-items-center animate-fade-in" role="status">
+    <div className="fixed inset-0 z-[60] bg-slate-900/50 grid place-items-center animate-fade-in" role="status">
       <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-2xl shadow-xl">
-        <div className="h-10 w-10 border-4 border-slate-100 border-t-[#5b63ff] rounded-full animate-spin" />
+        <div className="h-10 w-10 border-4 border-slate-100 border-t-[#5b63ff] rounded-full animate-spin" style={{ willChange: 'transform' }} />
         <div className="text-sm font-semibold text-slate-700">Caricamento dati Centrale Rischi...</div>
       </div>
     </div>
