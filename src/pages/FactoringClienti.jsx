@@ -1,4 +1,4 @@
-// src/pages/FactoringClienti.jsx
+// src/pages/FactoringClienti.jsx  (sezione "Credito")
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Factoring } from "../lib/api";
@@ -136,7 +136,7 @@ export default function FactoringClienti() {
           <div className="flex items-start justify-between">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold" style={{background:"rgba(255,255,255,0.12)", color:"#c7d2fe"}}>
-                <FactoringIcon/> Cessione del Credito
+                <CreditoIcon/> Cessione del Credito
               </div>
               <h1 className="mt-4 text-3xl font-bold text-white tracking-tight">Clienti per Valutazione</h1>
               <p className="mt-2 text-indigo-200 max-w-lg text-sm leading-relaxed">
@@ -145,7 +145,7 @@ export default function FactoringClienti() {
               </p>
             </div>
             <button
-              onClick={() => navigate("/factoring/fatture")}
+              onClick={() => navigate("/credito/fatture")}
               className="h-10 px-5 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-200"
               style={{background:"rgba(255,255,255,0.15)", color:"#e0e7ff", border:"1px solid rgba(255,255,255,0.2)", backdropFilter:"blur(8px)"}}
               onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.25)"; }}
@@ -315,7 +315,7 @@ export default function FactoringClienti() {
                     <div className="font-medium">Nessun cliente trovato</div>
                     <div className="text-sm mt-1">Carica delle fatture XML per creare automaticamente i clienti</div>
                     <button
-                      onClick={() => navigate("/factoring/fatture")}
+                      onClick={() => navigate("/credito/fatture")}
                       className="mt-4 h-9 px-4 rounded-lg text-sm text-white"
                       style={{background:"linear-gradient(135deg,#4f46e5,#6366f1)"}}
                     >
@@ -629,4 +629,4 @@ function ChevronDownIcon(){return(<svg width="14" height="14" viewBox="0 0 24 24
 function UploadIcon(){return(<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 15V3m0 0L8 7m4-4l4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 17v2a2 2 0 002 2h16a2 2 0 002-2v-2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>);}
 function FileIcon(){return(<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6Z" stroke="currentColor" strokeWidth="1.5"/><path d="M14 3v6h6" stroke="currentColor" strokeWidth="1.5"/></svg>);}
 function InvoiceIcon(){return(<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6Z" stroke="currentColor" strokeWidth="1.6"/><path d="M14 3v6h6M8 13h8M8 17h8M8 9h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>);}
-function FactoringIcon(){return(<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M2 12h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="M8.5 14.5L12 11l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>);}
+function CreditoIcon(){return(<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M2 12h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="M8.5 14.5L12 11l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>);}

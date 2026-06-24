@@ -104,8 +104,8 @@ export default function App() {
             <Route path="/scadenze" element={<Scadenze />} />
             <Route path="/cashflow" element={<CashFlow />} />
             <Route path="/aichat" element={<AIChat />} />
-            <Route path="/factoring/clienti" element={<FactoringClienti />} />
-            <Route path="/factoring/fatture" element={<FactoringFatture />} />
+            <Route path="/credito/clienti" element={<FactoringClienti />} />
+            <Route path="/credito/fatture" element={<FactoringFatture />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

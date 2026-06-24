@@ -13,7 +13,7 @@ export default function Shell({ children, onLogout }) {
       { to: "/", label: "Allerta", icon: AlertIcon },
        { to: "/analisi-bilancio", label: "Bilanci", icon: BarsIcon },
       { to: "/analisi-cr", label: "Centrale Rischi", icon: TrendIcon },
-      { to: "/factoring/clienti", label: "Factoring", icon: FactoringNavIcon },
+      { to: "/credito/clienti", label: "Credito", icon: FactoringNavIcon },
       { to: "/allerta", label: "Questionari", icon: TrendIcon },
       { to: "/impostazioni-azienda", label: "Azienda", icon: UsersIcon },
     ],

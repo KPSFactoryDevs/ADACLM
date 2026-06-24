@@ -1,4 +1,4 @@
-// src/pages/FactoringFatture.jsx
+// src/pages/FactoringFatture.jsx  (sezione "Credito")
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Factoring } from "../lib/api";
@@ -130,7 +130,7 @@ export default function FactoringFatture() {
               </p>
             </div>
             <button
-              onClick={() => navigate("/factoring/clienti")}
+              onClick={() => navigate("/credito/clienti")}
               className="h-10 px-5 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-200"
               style={{background:"rgba(255,255,255,0.15)", color:"#e0f2fe", border:"1px solid rgba(255,255,255,0.2)"}}
               onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.25)"; }}
@@ -361,7 +361,7 @@ export default function FactoringFatture() {
           {/* CTA */}
           <div className="px-5 py-4 border-t border-neutral-100 bg-neutral-50/50">
             <button
-              onClick={() => navigate("/factoring/clienti")}
+              onClick={() => navigate("/credito/clienti")}
               className="h-10 px-5 rounded-xl text-white text-sm font-medium flex items-center gap-2 transition"
               style={{background:"linear-gradient(135deg,#4338ca,#6366f1)"}}
             >

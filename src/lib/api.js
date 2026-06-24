@@ -155,13 +155,13 @@ async function handleResponse(res) {
 
 export const Factoring = {
   listClients() {
-    return api("/factoring/clients");
+    return api("/credito/clients");
   },
 
   async uploadXml(files) {
     const fd = new FormData();
     files.forEach((f) => fd.append("files[]", f));
-    const res = await fetch(`${API_BASE}/factoring/invoices/upload-xml`, {
+    const res = await fetch(`${API_BASE}/credito/invoices/upload-xml`, {
       method: "POST",
       headers: { ...authHeaders(), Accept: "application/json" },
       body: fd,
@@ -173,7 +173,7 @@ export const Factoring = {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("type", type);
-    const res = await fetch(`${API_BASE}/factoring/clients/${clientId}/documents`, {
+    const res = await fetch(`${API_BASE}/credito/clients/${clientId}/documents`, {
       method: "POST",
       headers: { ...authHeaders(), Accept: "application/json" },
       body: fd,
@@ -182,7 +182,7 @@ export const Factoring = {
   },
 
   sendForEvaluation(clientId, notes = "") {
-    return api(`/factoring/clients/${clientId}/evaluate`, {
+    return api(`/credito/clients/${clientId}/evaluate`, {
       method: "POST",
       body: { notes },
     });
