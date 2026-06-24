@@ -133,3 +133,59 @@ export const CentraleRischi = {
     return api(path, { method: "GET" });
   },
 };
+
+/* ----------------- Factoring (Cessione del Credito) ----------------- */
+function authHeaders() {
+  const h = {};
+  const t = getToken();
+  const cid = getCompanyId();
+  if (t)   h["Authorization"]  = `Bearer ${t}`;
+  if (cid) h["CurrentCompany"] = cid;
+  return h;
+}
+
+async function handleResponse(res) {
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = data?.message || data?.errors || "Errore di rete";
+    throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+  }
+  return data;
+}
+
+export const Factoring = {
+  listClients() {
+    return api("/factoring/clients");
+  },
+
+  async uploadXml(files) {
+    const fd = new FormData();
+    files.forEach((f) => fd.append("files[]", f));
+    const res = await fetch(`${API_BASE}/factoring/invoices/upload-xml`, {
+      method: "POST",
+      headers: { ...authHeaders(), Accept: "application/json" },
+      body: fd,
+    });
+    return handleResponse(res);
+  },
+
+  async uploadDocument(clientId, file, type) {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("type", type);
+    const res = await fetch(`${API_BASE}/factoring/clients/${clientId}/documents`, {
+      method: "POST",
+      headers: { ...authHeaders(), Accept: "application/json" },
+      body: fd,
+    });
+    return handleResponse(res);
+  },
+
+  sendForEvaluation(clientId, notes = "") {
+    return api(`/factoring/clients/${clientId}/evaluate`, {
+      method: "POST",
+      body: { notes },
+    });
+  },
+};
+

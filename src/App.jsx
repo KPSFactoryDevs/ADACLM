@@ -25,6 +25,8 @@ const AIChat = React.lazy(() => import("./pages/AIChat.jsx"));
 const CashFlow = React.lazy(() => import("./pages/CashFlow.jsx"));
 const ImpostazioniAzienda = React.lazy(() => import("./pages/ImpostazioniAzienda.jsx"));
 const SsoLogin = React.lazy(() => import("./pages/SsoLogin.jsx"));
+const FactoringClienti = React.lazy(() => import("./pages/FactoringClienti.jsx"));
+const FactoringFatture = React.lazy(() => import("./pages/FactoringFatture.jsx"));
 
 const isAuthenticated = () => {
   try {
@@ -102,6 +104,8 @@ export default function App() {
             <Route path="/scadenze" element={<Scadenze />} />
             <Route path="/cashflow" element={<CashFlow />} />
             <Route path="/aichat" element={<AIChat />} />
+            <Route path="/factoring/clienti" element={<FactoringClienti />} />
+            <Route path="/factoring/fatture" element={<FactoringFatture />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

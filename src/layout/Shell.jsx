@@ -13,6 +13,7 @@ export default function Shell({ children, onLogout }) {
       { to: "/", label: "Allerta", icon: AlertIcon },
        { to: "/analisi-bilancio", label: "Bilanci", icon: BarsIcon },
       { to: "/analisi-cr", label: "Centrale Rischi", icon: TrendIcon },
+      { to: "/factoring/clienti", label: "Factoring", icon: FactoringNavIcon },
       { to: "/allerta", label: "Questionari", icon: TrendIcon },
       { to: "/impostazioni-azienda", label: "Azienda", icon: UsersIcon },
     ],
@@ -656,6 +657,16 @@ function BotIcon({ className }) {
       <circle cx="9" cy="12" r="1.3" fill="currentColor" />
       <circle cx="15" cy="12" r="1.3" fill="currentColor" />
       <path d="M8 16h8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+function FactoringNavIcon({ className }) {
+  return (
+    <svg className={cx(className)} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M3 10h18" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="12" cy="15" r="2" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M7 15h2M15 15h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }
