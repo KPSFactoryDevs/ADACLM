@@ -189,3 +189,37 @@ export const Factoring = {
   },
 };
 
+
+/* ----------------- Estratti Conto (Bank Statements) ----------------- */
+export const BankStatements = {
+  list() {
+    return api("/bank-statements");
+  },
+
+  async upload(file) {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`${API_BASE}/bank-statements/upload`, {
+      method: "POST",
+      headers: { ...authHeaders(), Accept: "application/json" },
+      body: fd,
+    });
+    return handleResponse(res);
+  },
+
+  analyze(id) {
+    return api(`/bank-statements/${id}/analyze`, { method: "POST" });
+  },
+
+  show(id) {
+    return api(`/bank-statements/${id}`);
+  },
+
+  update(id, data) {
+    return api(`/bank-statements/${id}`, { method: "PUT", body: data });
+  },
+
+  delete(id) {
+    return api(`/bank-statements/${id}`, { method: "DELETE" });
+  },
+};

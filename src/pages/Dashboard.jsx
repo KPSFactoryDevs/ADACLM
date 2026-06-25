@@ -38,10 +38,16 @@ const CONTI = [1450.45, 218.96, 0.05, 300.0];
 
 function resultColor(result) {
   const s = (result || "").toLowerCase();
-  if (s.includes("solidit") || s.includes("ottim") || s.includes("miglior")) return "#16a34a"; // emerald-600
-  if (s.includes("stabilit") || s.includes("buon")) return "#14b8a6"; // teal-500
-  if (s.includes("alert") || s.includes("debole") || s.includes("critic")) return "#f59e0b"; // amber-500
-  if (s.includes("fragil") || s.includes("peggiora") || s.includes("risch")) return "#ef4444"; // red-500
+  if (s === "default") return "#991b1b";        // darkest red
+  if (s.includes("situazione grave")) return "#ef4444"; // red-500
+  if (s.includes("rischio")) return "#f59e0b";  // amber-500 (Rischio alert)
+  if (s === "alert") return "#f97316";           // orange-500
+  if (s.includes("fragilità elevata") || s.includes("elevat")) return "#eab308"; // yellow-500
+  if (s.includes("fragilit") || s.includes("fragil")) return "#a3a3a3"; // neutral
+  if (s.includes("solidit") || s.includes("solid")) return "#16a34a"; // emerald-600
+  if (s.includes("miglior")) return "#16a34a";
+  if (s.includes("stabilit")) return "#a3a3a3";
+  if (s.includes("peggiora")) return "#ef4444";
   return "#64748b"; // slate-500
 }
 
@@ -86,26 +92,28 @@ const IconCircle = ({ children }) => (
 
 /* ── Scala orizzontale Allerta ── */
 const ALLERTA_SCALE = [
-  { label: "Fragile",       color: "#ef4444", keywords: ["fragil", "critico", "elevato"] },
-  { label: "Molto debole",  color: "#f97316", keywords: ["molto debole", "molto deb"] },
-  { label: "Debole",        color: "#f59e0b", keywords: ["debole", "alert", "attenzione"] },
-  { label: "Neutro",        color: "#a3a3a3", keywords: ["neutro", "nella media", "medio"] },
-  { label: "Buono",         color: "#4ade80", keywords: ["buon"] },
-  { label: "Molto buono",   color: "#22c55e", keywords: ["molto buon", "ottim"] },
-  { label: "Solido",        color: "#16a34a", keywords: ["solid", "eccellent", "miglior"] },
+  { label: "Default",            color: "#991b1b", keywords: ["default"] },
+  { label: "Situazione Grave",   color: "#ef4444", keywords: ["situazione grave"] },
+  { label: "Alert",              color: "#f97316", keywords: ["alert"] },
+  { label: "Rischio alert",      color: "#f59e0b", keywords: ["rischio alert", "rischio"] },
+  { label: "Fragilità elevata",  color: "#eab308", keywords: ["fragilità elevata", "elevat"] },
+  { label: "Fragilità",          color: "#a3a3a3", keywords: ["fragilit", "fragil"] },
+  { label: "Solidità",           color: "#16a34a", keywords: ["solidit", "solid"] },
 ];
 
 function matchScaleIndex(word) {
   if (!word || word === "N/A") return -1;
   const w = word.toLowerCase();
+  // exact label match first
   for (let i = 0; i < ALLERTA_SCALE.length; i++) {
+    if (w === ALLERTA_SCALE[i].label.toLowerCase()) return i;
+  }
+  // then keyword match — check longer/more specific keywords first
+  // iterate in reverse so more specific items (e.g. "Fragilità elevata") match before generic ("Fragilità")
+  for (let i = ALLERTA_SCALE.length - 1; i >= 0; i--) {
     for (const kw of ALLERTA_SCALE[i].keywords) {
       if (w.includes(kw)) return i;
     }
-  }
-  // fallback: prova corrispondenza esatta label
-  for (let i = 0; i < ALLERTA_SCALE.length; i++) {
-    if (w.includes(ALLERTA_SCALE[i].label.toLowerCase())) return i;
   }
   return -1;
 }
@@ -307,19 +315,25 @@ export default function Dashboard() {
 
   function getScoreColor(w) {
     const s = w.toLowerCase();
-    if (s.includes("ottimo") || s.includes("solida")) return "#16a34a"; 
-    if (s.includes("buon")) return "#4ade80";
-    if (s.includes("critic") || s.includes("debole")) return "#f59e0b";
-    if (s.includes("elevato") || s.includes("rischio") || s.includes("fragil")) return "#ef4444";
+    if (s === "default") return "#991b1b";
+    if (s.includes("situazione grave")) return "#ef4444";
+    if (s === "alert") return "#f97316";
+    if (s.includes("rischio")) return "#f59e0b";
+    if (s.includes("fragilità elevata")) return "#eab308";
+    if (s.includes("fragilit")) return "#a3a3a3";
+    if (s.includes("solidit")) return "#16a34a";
     return "#64748b";
   }
 
   function getScoreValue(w) {
     const s = w.toLowerCase();
-    if (s.includes("ottimo") || s.includes("solida")) return 100;
-    if (s.includes("buon")) return 75;
-    if (s.includes("critic") || s.includes("debole")) return 40;
-    if (s.includes("elevato") || s.includes("rischio") || s.includes("fragil")) return 10;
+    if (s === "default") return 0;
+    if (s.includes("situazione grave")) return 14;
+    if (s === "alert") return 28;
+    if (s.includes("rischio")) return 42;
+    if (s.includes("fragilità elevata")) return 56;
+    if (s.includes("fragilit")) return 70;
+    if (s.includes("solidit")) return 100;
     return 0;
   }
 

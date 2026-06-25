@@ -27,6 +27,8 @@ const ImpostazioniAzienda = React.lazy(() => import("./pages/ImpostazioniAzienda
 const SsoLogin = React.lazy(() => import("./pages/SsoLogin.jsx"));
 const FactoringClienti = React.lazy(() => import("./pages/FactoringClienti.jsx"));
 const FactoringFatture = React.lazy(() => import("./pages/FactoringFatture.jsx"));
+const EstrattiConto = React.lazy(() => import("./pages/EstrattiConto.jsx"));
+const EstrattoContoDettaglio = React.lazy(() => import("./pages/EstrattoContoDettaglio.jsx"));
 
 const isAuthenticated = () => {
   try {
@@ -106,6 +108,8 @@ export default function App() {
             <Route path="/aichat" element={<AIChat />} />
             <Route path="/credito/clienti" element={<FactoringClienti />} />
             <Route path="/credito/fatture" element={<FactoringFatture />} />
+            <Route path="/estratti-conto" element={<EstrattiConto />} />
+            <Route path="/estratti-conto/:id" element={<EstrattoContoDettaglio />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
