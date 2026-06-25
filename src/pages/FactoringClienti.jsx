@@ -249,7 +249,7 @@ export default function FactoringClienti() {
                     </div>
                   </td>
                   {/* PIVA */}
-                  <td className="px-4 py-3 text-neutral-600 font-mono text-xs">{c.piva}</td>
+                  <td className="px-4 py-3 text-neutral-600 font-mono text-xs">••••••••••••</td>
                   {/* Città */}
                   <td className="px-4 py-3 text-neutral-600">
                     {c.citta || "—"}
@@ -466,7 +466,7 @@ export default function FactoringClienti() {
             <div className="p-6 flex items-center justify-between border-b border-neutral-100">
               <div>
                 <div className="text-lg font-semibold">Azienda Censurata</div>
-                <div className="text-sm text-neutral-500">{detailClient.piva}</div>
+                <div className="text-sm text-neutral-500">••••••••••••</div>
               </div>
               <button onClick={()=>setDetailOpen(false)} className="w-8 h-8 rounded-lg hover:bg-neutral-100 grid place-items-center transition">✕</button>
             </div>
