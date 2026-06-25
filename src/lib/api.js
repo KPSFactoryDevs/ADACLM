@@ -158,6 +158,10 @@ export const Factoring = {
     return api("/credito/clients");
   },
 
+  deleteClient(clientId) {
+    return api(`/credito/clients/${clientId}`, { method: "DELETE" });
+  },
+
   async uploadXml(files) {
     const fd = new FormData();
     files.forEach((f) => fd.append("files[]", f));

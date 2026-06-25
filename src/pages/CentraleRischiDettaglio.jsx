@@ -418,7 +418,7 @@ period = id,  // se lo passi, override
               </p>
               {ANAGRAFICA && (
                 <div className="mt-3 text-sm text-slate-700 font-medium">
-                  <strong>Intestatario:</strong> {ANAGRAFICA.ragione_sociale} {ANAGRAFICA.codice_fiscale && `(${ANAGRAFICA.codice_fiscale})`}
+                  <strong>Intestatario:</strong> Azienda Censurata
                 </div>
               )}
             </div>

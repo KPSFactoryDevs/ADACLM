@@ -33,6 +33,9 @@ export default function FactoringClienti() {
   const [uploadFile, setUploadFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
+  // Conferma eliminazione
+  const [confirmDel, setConfirmDel] = useState(null);
+
   // Filtri
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("nome");
@@ -78,6 +81,19 @@ export default function FactoringClienti() {
   const slice = filtered.slice((pageSafe-1)*perPage, pageSafe*perPage);
 
   useEffect(() => { setPage(1); }, [search, sortKey, sortDir]);
+
+  // Elimina client
+  const handleDeleteClient = async (id) => {
+    try {
+      await Factoring.deleteClient(id);
+      setRows(prev => prev.filter(c => c.id !== id));
+      showToast("ok", "Cliente eliminato con successo");
+    } catch (e) {
+      showToast("error", e.message || "Errore durante l'eliminazione");
+    } finally {
+      setConfirmDel(null);
+    }
+  };
 
   const toggleSort = (key) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -305,6 +321,13 @@ export default function FactoringClienti() {
                           <SendIcon/> Invia per valutazione
                         </button>
                       )}
+                      <button
+                        onClick={() => setConfirmDel({ id: c.id, label: c.nome })}
+                        className="h-8 w-8 rounded-lg border border-red-200 text-red-500 flex items-center justify-center hover:bg-red-50 transition"
+                        title="Elimina cliente"
+                      >
+                        <TrashIcon/>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -352,6 +375,37 @@ export default function FactoringClienti() {
         <div className={`fixed bottom-5 right-5 px-5 py-3 rounded-xl shadow-lg text-sm text-white z-50 transition-all duration-300 ${
           toast.type === "success" ? "bg-emerald-600" : "bg-red-500"
         }`} style={{animation:"slideUp .3s ease"}}>{toast.msg}</div>
+      )}
+
+      {/* MODALE CONFERMA ELIMINAZIONE */}
+      {confirmDel && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm grid place-items-center p-4" onClick={() => setConfirmDel(null)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()} style={{animation:"scaleIn .2s ease"}}>
+            <div className="p-6 text-center">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
+                <TrashIcon/>
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Eliminare il cliente?</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                Stai per eliminare <strong>{confirmDel.label}</strong> e tutti i dati collegati (fatture, documenti). Questa azione è irreversibile.
+              </p>
+            </div>
+            <div className="px-6 pb-6 flex gap-3">
+              <button
+                onClick={() => setConfirmDel(null)}
+                className="flex-1 h-10 rounded-xl border border-slate-200 text-sm font-medium hover:bg-slate-50 transition"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => handleDeleteClient(confirmDel.id)}
+                className="flex-1 h-10 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition"
+              >
+                Elimina
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* MODALE INVIO VALUTAZIONE */}
@@ -630,3 +684,4 @@ function UploadIcon(){return(<svg width="14" height="14" viewBox="0 0 24 24" fil
 function FileIcon(){return(<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6Z" stroke="currentColor" strokeWidth="1.5"/><path d="M14 3v6h6" stroke="currentColor" strokeWidth="1.5"/></svg>);}
 function InvoiceIcon(){return(<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6Z" stroke="currentColor" strokeWidth="1.6"/><path d="M14 3v6h6M8 13h8M8 17h8M8 9h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>);}
 function CreditoIcon(){return(<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M2 12h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="M8.5 14.5L12 11l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>);}
+function TrashIcon(){return(<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>);}

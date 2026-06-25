@@ -174,7 +174,7 @@ export default function AnalisiBilancio() {
 
         return {
           id: d.id,
-          azienda: d.nome_azienda || companyNameFallback || "—",
+          azienda: "Azienda Censurata",
           esercizio: esercizio ? String(esercizio) : "—",
           periodo,
           formato,

@@ -635,7 +635,7 @@ export default function AnalisiBilancioDettaglio() {
             <div className="min-w-0 flex-1">
               <div className="text-sm text-[#5b63ff] font-semibold uppercase tracking-widest">Rapporto Dettagliato</div>
               <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">
-                {loading ? <SkLine w={280} h={32} /> : <>Panoramica di {nomeAzienda ? nomeAzienda : "Azienda"}</>}
+                {loading ? <SkLine w={280} h={32} /> : <>Panoramica di Azienda Censurata</>}
               </h1>
               <div className="mt-2 text-sm text-slate-500 max-w-xl leading-relaxed">
                 {loading ? <SkLine w={340} /> : "Punteggio calcolato in tempo reale sulle grandezze contabili estratte, integrato con gli indicatori del Consiglio Nazionale dei Dottori Commercialisti (CNDC\\EC)."}

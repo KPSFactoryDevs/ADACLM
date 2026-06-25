@@ -515,7 +515,7 @@ function mapCRDocs(docs) {
       return {
         id: d.id,
         codiceDocumento: d.codice_documento,
-        azienda: anagLabel || d.nome_azienda || fallbackName || "—",
+        azienda: "Azienda Censurata",
         periodo,
         tipo: "Mensile", 
         formato,
