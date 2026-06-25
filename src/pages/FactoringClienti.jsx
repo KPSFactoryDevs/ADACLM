@@ -109,7 +109,7 @@ export default function FactoringClienti() {
       setEvalOpen(false);
       // Aggiorna stato locale
       setRows(prev => prev.map(c => c.id === evalClient.id ? {...c, evaluation_status: "pending", evaluation_sent_at: new Date().toISOString()} : c));
-      showToast("success", `Valutazione inviata per ${evalClient?.nome}`);
+      showToast("success", `Valutazione inviata per Azienda Censurata`);
     } catch (err) {
       showToast("error", err.message || "Errore invio valutazione");
     } finally {
@@ -240,10 +240,10 @@ export default function FactoringClienti() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full flex-shrink-0 grid place-items-center text-xs font-semibold text-white" style={{background:"linear-gradient(135deg,#4f46e5,#6366f1)"}}>
-                        {abbr(c.nome)}
+                        AC
                       </div>
                       <div>
-                        <div className="font-medium text-neutral-900">{c.nome}</div>
+                        <div className="font-medium text-neutral-900">Azienda Censurata</div>
                         {c.email && <div className="text-xs text-neutral-400">{c.email}</div>}
                       </div>
                     </div>
@@ -322,7 +322,7 @@ export default function FactoringClienti() {
                         </button>
                       )}
                       <button
-                        onClick={() => setConfirmDel({ id: c.id, label: c.nome })}
+                        onClick={() => setConfirmDel({ id: c.id, label: "Azienda Censurata" })}
                         className="h-8 w-8 rounded-lg border border-red-200 text-red-500 flex items-center justify-center hover:bg-red-50 transition"
                         title="Elimina cliente"
                       >
@@ -415,7 +415,7 @@ export default function FactoringClienti() {
             <div className="p-6" style={{background:"linear-gradient(135deg,#4338ca,#6366f1)"}}>
               <div className="text-white text-lg font-semibold">Invia per Valutazione</div>
               <div className="text-indigo-200 text-sm mt-1">
-                Cliente: <strong className="text-white">{evalClient?.nome}</strong>
+                Cliente: <strong className="text-white">Azienda Censurata</strong>
               </div>
             </div>
             <form onSubmit={submitEvaluation} className="p-6 space-y-4">
@@ -465,7 +465,7 @@ export default function FactoringClienti() {
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden" onClick={e=>e.stopPropagation()} style={{animation:"scaleIn .2s ease"}}>
             <div className="p-6 flex items-center justify-between border-b border-neutral-100">
               <div>
-                <div className="text-lg font-semibold">{detailClient.nome}</div>
+                <div className="text-lg font-semibold">Azienda Censurata</div>
                 <div className="text-sm text-neutral-500">{detailClient.piva}</div>
               </div>
               <button onClick={()=>setDetailOpen(false)} className="w-8 h-8 rounded-lg hover:bg-neutral-100 grid place-items-center transition">✕</button>
@@ -498,7 +498,7 @@ export default function FactoringClienti() {
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden" onClick={e=>e.stopPropagation()} style={{animation:"scaleIn .2s ease"}}>
             <div className="p-5 border-b border-neutral-100">
               <div className="text-lg font-semibold">Carica Documento</div>
-              <div className="text-sm text-neutral-500 mt-0.5">Per: <strong>{uploadClient.nome}</strong></div>
+              <div className="text-sm text-neutral-500 mt-0.5">Per: <strong>Azienda Censurata</strong></div>
             </div>
             <form onSubmit={submitUpload} className="p-5 space-y-4">
               <div>
