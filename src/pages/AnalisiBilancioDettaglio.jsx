@@ -61,14 +61,16 @@ async function postMissingVoices(documentId, voci) {
 }
 
 /* ======================= Scale / utils UI ======================= */
+// Scala allineata a quella del backend (AllertaHelper::getScores)
+// Backend scala 0-1 → frontend scala 0-100 (stesse soglie x100)
 const SCALE = [
-  { label: "Solido",        min: 90, color: "#16a34a" }, // emerald-600
-  { label: "Molto buono",   min: 80, color: "#22c55e" }, // green-500
-  { label: "Buono",         min: 70, color: "#4ade80" }, // green-400
-  { label: "Neutro",        min: 60, color: "#a3a3a3" }, // neutral-400
-  { label: "Debole",        min: 50, color: "#f59e0b" }, // amber-500
-  { label: "Molto debole",  min: 40, color: "#f97316" }, // orange-500
-  { label: "Fragile",       min: 0,  color: "#ef4444" }, // red-500
+  { label: "Solidità",          min: 85, color: "#16a34a" }, // emerald-600
+  { label: "Fragilità",         min: 70, color: "#22c55e" }, // green-500
+  { label: "Fragilità elevata", min: 56, color: "#f59e0b" }, // amber-500
+  { label: "Rischio alert",     min: 42, color: "#f97316" }, // orange-500
+  { label: "Alert",             min: 28, color: "#fb923c" }, // orange-400
+  { label: "Situazione Grave",  min: 14, color: "#ef4444" }, // red-500
+  { label: "Default",           min: 0,  color: "#dc2626" }, // red-600
 ];
 const ALERT_LINKS = [
   { id:"ade",    label:"Agenzia delle Entrate" },
@@ -503,11 +505,15 @@ export default function AnalisiBilancioDettaglio() {
     setRecap(payload);
     setNomeAzienda(payload?.nome_azienda ?? null);
 
-    // Se il backend manda uno score esplicito, lo usiamo come override
+    // Se il backend manda uno score esplicito (scala 0-1), lo convertiamo in 0-100
     const maybeScore = payload?.bilancioAnalisi?.Score ?? payload?.bilancioAnalisi?.score ?? null;
     if (maybeScore != null) {
       const s = parseNum(maybeScore);
-      if (s != null) setBackendScoreOverride(Math.max(0, Math.min(100, Math.round(s))));
+      if (s != null) {
+        // Il backend restituisce lo score su scala 0-1, lo convertiamo a 0-100
+        const score100 = s <= 1 ? s * 100 : s;
+        setBackendScoreOverride(Math.max(0, Math.min(100, Math.round(score100))));
+      }
     }
 
     const missingMap = {};
