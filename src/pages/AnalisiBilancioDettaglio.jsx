@@ -1,10 +1,10 @@
 // src/pages/AnalisiBilancioDettaglio.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Gauge } from "../components/ui/Gauge";
 import { Badge } from "../components/ui/Badge";
 import { Pill } from "../components/ui/Pill";
-import { PencilIcon, ArrowRightIcon, CheckCircleIcon, XCircleIcon } from "../components/ui/Icons";
+import { PencilIcon, ArrowRightIcon, CheckCircleIcon, XCircleIcon, BarsIcon } from "../components/ui/Icons";
 import { API_BASE } from "../lib/api";
 
 function getAuth() {
@@ -185,37 +185,261 @@ function toApiString(v) {
 
 /* ======================= Small UI / Skeletons ======================= */
 function StatusIcon({ kind }) {
-  if (kind === "ok") return <Badge tone="teal">✅ No</Badge>;
-  if (kind === "bad") return <Badge tone="rose">❌ Sì</Badge>;
-  return <Badge tone="amber">⚠️ N/D</Badge>;
+  if (kind === "ok") return <Badge tone="teal"><CheckCircleIcon className="w-3.5 h-3.5 mr-0.5"/>No</Badge>;
+  if (kind === "bad") return <Badge tone="rose"><XCircleIcon className="w-3.5 h-3.5 mr-0.5"/>Sì</Badge>;
+  return <Badge tone="amber"><AlertTriangleInline className="w-3.5 h-3.5 mr-0.5"/>N/D</Badge>;
 }
 
 function StatusIconTwo({ kind }) {
   if (kind === "ok") return <Badge tone="emerald" className="px-2 py-0.5"><CheckCircleIcon className="w-4 h-4 mr-0.5"/>OK</Badge>;
   if (kind === "bad") return <Badge tone="rose" className="px-2 py-0.5"><XCircleIcon className="w-4 h-4 mr-0.5"/>Rischio</Badge>;
-  return <Badge tone="amber" className="px-2 py-0.5">⚠️ Da valutare</Badge>;
+  return <Badge tone="amber" className="px-2 py-0.5"><AlertTriangleInline className="w-3.5 h-3.5 mr-0.5"/>Da valutare</Badge>;
+}
+
+// Inline tiny alert triangle SVG (replaces emoji ⚠️)
+function AlertTriangleInline({ className = "" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+      <path d="M12 9v4" /><path d="M12 17h.01" />
+    </svg>
+  );
 }
 
 const SkLine = ({ w="100%", h=12, className="" }) => (
-  <div className={`animate-pulse rounded ${className}`} style={{ width:w, height:h, backgroundColor:"#f1f5f9" }} />
+  <div className={`animate-pulse rounded ${className}`} style={{ width:w, height:h, backgroundColor:"var(--sk-bg, #e8ecf1)" }} />
 );
 const SkBadge = ({ w=120, h=28 }) => <SkLine w={w} h={h} className="rounded-full" />;
 const SkBtn = ({ w=130, h=36 }) => <SkLine w={w} h={h} className="rounded-xl" />;
 const SkCircle = ({ size=96 }) => (
-  <div className="animate-pulse rounded-full" style={{ width:size, height:size, backgroundColor:"#f1f5f9" }} />
+  <div className="animate-pulse rounded-full" style={{ width:size, height:size, backgroundColor:"var(--sk-bg, #e8ecf1)" }} />
 );
 
 function FullPageLoader({ show }) {
   if (!show) return null;
   return (
-    <div className="fixed inset-0 z-[60] bg-slate-900/50 grid place-items-center animate-fade-in" role="status">
+    <div className="fixed inset-0 z-[60] bg-slate-900/50 grid place-items-center anim-fade-in" role="status">
       <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-2xl shadow-xl">
-        <div className="h-10 w-10 border-4 border-slate-100 border-t-[#5b63ff] rounded-full animate-spin" style={{ willChange: 'transform' }} />
+        <div className="h-10 w-10 border-4 border-slate-100 border-t-[var(--brand)] rounded-full animate-spin" style={{ willChange: 'transform' }} />
         <div className="text-sm font-semibold text-slate-700">Elaborazione bilancio in corso...</div>
       </div>
     </div>
   );
 }
+
+/* ======================= Memoized Sub-Tables ======================= */
+
+/** Indici Primari (Basic) Table — React.memo prevents re-render unless data changes */
+const IndiciBasicTable = React.memo(function IndiciBasicTable({ loading, indici, missingCount, indexStatus, openVoci, countMissingVoci }) {
+  return (
+    <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm flex flex-col">
+      <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent flex items-center justify-between">
+        <h2 className="font-bold text-slate-800 flex items-center gap-2">
+          <div className="w-1.5 h-4 bg-[var(--brand)] rounded-full"></div>
+          Indici Primari
+        </h2>
+        <div className="text-xs font-semibold text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+          Mancanti: <span className="text-rose-600 font-bold ml-1">{missingCount}</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto flex-1">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-100">
+            <tr>
+              <th className="px-6 py-4 text-left font-semibold">Indice Analizzato</th>
+              <th className="px-6 py-4 text-left font-semibold">Valore</th>
+              <th className="px-6 py-4 text-left font-semibold">Fuori soglia?</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {loading ? (
+              Array.from({length:6}).map((_,i)=>(
+                <tr key={`sk-indici-${i}`}>
+                  <td className="px-6 py-4"><SkLine w="70%" /></td>
+                  <td className="px-6 py-4"><SkLine w="40%" /></td>
+                  <td className="px-6 py-4"><SkBadge w={80} h={24} /></td>
+                </tr>
+              ))
+            ) : (
+              indici.map((r, idx, arr) => {
+                const isLast = idx === arr.length - 1;
+                const v = String(r.note ?? '');
+                const kind = v.includes('Azienda NON a Rischio') ? 'ok'
+                            : v.includes('Azienda a Rischio') ? 'bad' : undefined;
+                return (
+                  <tr key={r.id} className="hover:bg-slate-50/80 transition-colors duration-150 group">
+                    <td className={`px-6 py-4 font-medium ${r.missing ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>{r.nome}</td>
+                    <td className="px-6 py-4">
+                      {!r.missing ? (
+                        <span className="font-semibold text-slate-800 flex items-center min-h-[32px]">
+                            {kind && <span className="mr-2"><StatusIconTwo kind={kind} /></span>}
+                            {r.fmt === "%" ? fmtPerc(r.valore) : (r.fmt ? `${r.valore}${r.fmt}` : (r.note || "—"))}
+                        </span>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={()=>openVoci(r)}
+                            className="inline-flex max-w-[max-content] px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 transition-colors duration-150 shadow-sm"
+                          >
+                            INSERISCI DATI
+                          </button>
+                          {r.missingVoci && (
+                            <span className="text-xs font-medium text-slate-400">
+                              Richiede {countMissingVoci(r.missingVoci)} voci XBRL
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {!isLast && <StatusIcon kind={indexStatus(r)} />}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+});
+
+/** Questionari Allerta Table — React.memo */
+const AlertTable = React.memo(function AlertTable({ loading, alertStatus, qFlags, openQuestionario }) {
+  return (
+    <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm flex flex-col">
+      <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent">
+        <h2 className="font-bold text-slate-800 flex items-center gap-2">
+          <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full"></div>
+          Questionari Allerta (CNDC)
+        </h2>
+      </div>
+      <div className="overflow-x-auto flex-1">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-100">
+            <tr>
+              <th className="px-6 py-4 text-left font-semibold">Voce Questionario</th>
+              <th className="px-6 py-4 text-left font-semibold">Stato Alert</th>
+              <th className="px-6 py-4 text-right font-semibold">Azione</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {loading ? (
+              Array.from({length:5}).map((_,i)=>(
+                <tr key={`sk-alert-${i}`}>
+                  <td className="px-6 py-4"><SkLine w="65%" /></td>
+                  <td className="px-6 py-4"><SkBadge w={70} h={24} /></td>
+                  <td className="px-6 py-4 flex justify-end"><SkBtn w={36} h={36} className="rounded-full" /></td>
+                </tr>
+              ))
+            ) : (
+              ALERT_LINKS.map((a)=> {
+                const s = alertStatus[a.id] || "missing";
+                const qVal = qFlags?.[Q_MAP[a.id]];
+                return (
+                  <tr key={a.id} className="hover:bg-slate-50/80 transition-colors duration-150 group">
+                    <td className="px-6 py-4 font-medium text-slate-700">{a.label}</td>
+                    <td className="px-6 py-4">
+                      <StatusIcon kind={s}/>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        {qVal == null ? (
+                          <button
+                            onClick={()=>openQuestionario(a.id)}
+                            className="px-4 py-2 rounded-xl border border-[#D8D2FF] bg-[#ECE8FF] text-[var(--brand)] text-xs font-semibold hover:bg-[var(--brand)] hover:text-white transition-all duration-200 shadow-sm whitespace-nowrap"
+                          >
+                            COMPILA ORA
+                          </button>
+                        ) : (
+                          <button
+                            onClick={()=>openQuestionario(a.id)}
+                            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all duration-150 font-semibold"
+                            title="Modifica questionario"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+});
+
+/** Indici Avanzati Table — React.memo */
+const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, indiciAdvanced, indexStatus, openVoci, countMissingVoci }) {
+  return (
+    <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm">
+      <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent">
+        <h2 className="font-bold text-slate-800 flex items-center gap-2">
+          <div className="w-1.5 h-4 bg-teal-500 rounded-full"></div>
+          Indici Avanzati (Analisi Supplementare)
+        </h2> 
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-100">
+            <tr>
+              <th className="px-6 py-4 text-left font-semibold">Indice Analizzato</th>
+              <th className="px-6 py-4 text-left font-semibold">Valore Calcolato</th>
+              <th className="px-6 py-4 text-left font-semibold">Fuori soglia?</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {loading ? (
+              Array.from({length:4}).map((_,i)=>(
+                <tr key={`sk-adv-${i}`}>
+                  <td className="px-6 py-4"><SkLine w="50%" /></td>
+                  <td className="px-6 py-4"><SkLine w="30%" /></td>
+                  <td className="px-6 py-4"><SkBadge w={80} h={24} /></td>
+                </tr>
+              ))
+            ) : (
+              indiciAdvanced.map((r) => (
+                <tr key={r.id} className="hover:bg-slate-50/80 transition-colors duration-150 group">
+                  <td className={`px-6 py-4 font-medium ${r.missing ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>{r.nome}</td>
+                  <td className="px-6 py-4">
+                    {!r.missing ? (
+                      <span className="font-semibold text-slate-800 text-base">
+                        {r.fmt === "%" ? fmtPerc(r.valore) : (r.fmt ? `${r.valore}${r.fmt}` : (r.note || "—"))}
+                      </span>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={()=>openVoci(r)}
+                          className="inline-flex max-w-[max-content] px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 transition-colors duration-150 shadow-sm"
+                        >
+                          INSERISCI DATI
+                        </button>
+                        {r.missingVoci && (
+                          <span className="text-xs font-medium text-slate-400">
+                            Richiede {countMissingVoci(r.missingVoci)} voci XBRL
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <StatusIconTwo kind={indexStatus(r)} />
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+});
+
 
 /* ======================= Page ======================= */
 export default function AnalisiBilancioDettaglio() {
@@ -252,22 +476,27 @@ export default function AnalisiBilancioDettaglio() {
   // Modale voci mancanti per indice
   const [modalVoci, setModalVoci] = useState(null);
   const [tmpVoci, setTmpVoci] = useState({});
-  const autoSaveRef = useRef(null);
+  const debounceSaveRef = useRef(null);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [qModal, setQModal] = useState(null);
 
+  // Sync docId from URL param — only update when param actually changes
+  const prevIdRef = useRef(initialDocId);
   useEffect(()=>{
     const next = Number(id);
-    if (next && next !== docId) setDocId(next);
-  }, [id, docId]);
+    if (next && next !== prevIdRef.current) {
+      prevIdRef.current = next;
+      setDocId(next);
+    }
+  }, [id]);
 
   function showToast(type, msg) {
     setToast({ type, msg });
     setTimeout(() => setToast(null), 3000);
   }
 
-  const handleRefreshedData = (payload) => {
+  const handleRefreshedData = useCallback((payload) => {
     if (!payload) return;
     setRecap(payload);
     setNomeAzienda(payload?.nome_azienda ?? null);
@@ -311,7 +540,7 @@ export default function AnalisiBilancioDettaglio() {
     const arrAdvanced = buildIndices(payload?.bilancioAnalisi?.Indici?.Advanced);
     setIndiciAdvanced(arrAdvanced);
     save(keyFor("indiciAdvanced", docId), arrAdvanced);
-  };
+  }, [docId]);
 
   /* -------------------- Fetch via /recapBilancio -------------------- */
   useEffect(()=>{
@@ -488,11 +717,13 @@ export default function AnalisiBilancioDettaglio() {
     setModalVoci({ id: row.id, nome: row.nome, voci });
   };
 
+  // Debounced localStorage save for voci changes (400ms)
   const handleVociChange = (key, val) => {
     setTmpVoci(s => ({ ...s, [key]: val }));
-    save(keyFor(`voci_${modalVoci?.id}`, docId), { ...(tmpVoci || {}), [key]: val });
-    if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
-    autoSaveRef.current = setTimeout(()=>{}, 600);
+    if (debounceSaveRef.current) clearTimeout(debounceSaveRef.current);
+    debounceSaveRef.current = setTimeout(() => {
+      save(keyFor(`voci_${modalVoci?.id}`, docId), { ...(tmpVoci || {}), [key]: val });
+    }, 400);
   };
 
   const saveVoci = async () => {
@@ -522,13 +753,14 @@ export default function AnalisiBilancioDettaglio() {
     }
   };
 
-  const indexStatus = (r) => {
+  const indexStatus = useCallback((r) => {
     if (r.missing || r.fuori === "N/A") return "missing";
     if (String(r.fuori).toLowerCase().startsWith("sì") || String(r.fuori).toLowerCase()==="si") return "bad";
     return "ok";
-  };
+  }, []);
+
   const labelsMap = recap?.bilancioAnalisi?.labels || {};
-  const openQuestionario = (id) => setQModal(id);
+  const openQuestionario = useCallback((id) => setQModal(id), []);
 
   const [pdfLoading, setPdfLoading] = useState(false);
 
@@ -556,8 +788,8 @@ export default function AnalisiBilancioDettaglio() {
 
   /* ======================= Render ======================= */
   return (
-    <div className="space-y-6 pb-20 font-sans min-h-screen text-slate-800 animate-fade-in-up">
-      <Link to="/analisi-bilancio" className="inline-flex items-center gap-2 text-sm text-[#5b63ff] hover:text-[#454de0] font-semibold transition-colors">
+    <div className="space-y-6 pb-20 font-sans min-h-screen text-slate-800 anim-fade-in-up">
+      <Link to="/analisi-bilancio" className="inline-flex items-center gap-2 text-sm text-[var(--brand)] hover:text-[var(--brand-dark)] font-semibold transition-colors duration-150">
         <ArrowRightIcon className="w-4 h-4 rotate-180" /> Torna a tutti i bilanci
       </Link>
       
@@ -589,11 +821,16 @@ export default function AnalisiBilancioDettaglio() {
                     />
                   </svg>
                 )}
+                {/* Glow effect behind the gauge */}
+                <div
+                  className="absolute inset-0 rounded-full blur-xl opacity-20 transition-colors duration-700"
+                  style={{ backgroundColor: rating.color }}
+                />
                 <Gauge value={score ?? 0} color={rating.color} size={150} stroke={14} label="Scoring" subtitle="su 100" />
                 {/* Badge warning con tooltip */}
                 {incompleteness.incomplete && (
                   <div className="absolute -top-1 -right-1 z-10 group/warn">
-                    <div className="w-7 h-7 rounded-full bg-amber-400 border-2 border-white shadow-md flex items-center justify-center cursor-help transition-transform hover:scale-110">
+                    <div className="w-7 h-7 rounded-full bg-amber-400 border-2 border-white shadow-md flex items-center justify-center cursor-help transition-transform duration-200 hover:scale-110">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 9v4" />
                         <path d="M12 17h.01" />
@@ -633,7 +870,7 @@ export default function AnalisiBilancioDettaglio() {
         <div className="flex-1 w-full flex flex-col justify-center">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <div className="text-sm text-[#5b63ff] font-semibold uppercase tracking-widest">Rapporto Dettagliato</div>
+              <div className="text-sm text-[var(--brand)] font-semibold uppercase tracking-widest">Rapporto Dettagliato</div>
               <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">
                 {loading ? <SkLine w={280} h={32} /> : <>Panoramica di Azienda Censurata</>}
               </h1>
@@ -656,7 +893,7 @@ export default function AnalisiBilancioDettaglio() {
                   <button
                     onClick={downloadReport}
                     disabled={pdfLoading}
-                    className={`h-10 px-5 rounded-xl border text-sm font-semibold shadow-sm transition-all flex items-center gap-2 print:hidden ${pdfLoading ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-wait' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'}`}
+                    className={`h-10 px-5 rounded-xl border text-sm font-semibold shadow-sm transition-all duration-200 flex items-center gap-2 print:hidden ${pdfLoading ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-wait' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'}`}
                   >
                     {pdfLoading ? (
                       <>
@@ -674,7 +911,7 @@ export default function AnalisiBilancioDettaglio() {
                   </button>
                   <button
                     onClick={()=>setPreviewOpen(true)}
-                    className="h-10 px-5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 shadow-md hover:shadow-lg transition-all print:hidden"
+                    className="h-10 px-5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 shadow-md hover:shadow-lg transition-all duration-200 print:hidden"
                   >
                     Anteprima bilancio {'>'}
                   </button>
@@ -686,219 +923,45 @@ export default function AnalisiBilancioDettaglio() {
         </div>
       </section>
 
-      {/* INDICI + ALERT GRIDS */}
+      {/* INDICI + ALERT GRIDS — Memoized sub-components */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Indici Basic */}
-        <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm flex flex-col">
-          <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent flex items-center justify-between">
-            <h2 className="font-bold text-slate-800 flex items-center gap-2">
-              <div className="w-1.5 h-4 bg-[#5b63ff] rounded-full"></div>
-              Indici Primari
-            </h2>
-            <div className="text-xs font-semibold text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
-              Mancanti: <span className="text-rose-600 font-bold ml-1">{missingCount}</span>
-            </div>
-          </div>
-          <div className="overflow-x-auto flex-1">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50/50 text-slate-500 font-semibold border-b border-slate-100">
-                <tr>
-                  <th className="px-6 py-4 text-left font-semibold">Indice Analizzato</th>
-                  <th className="px-6 py-4 text-left font-semibold">Valore</th>
-                  <th className="px-6 py-4 text-left font-semibold">Fuori soglia?</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  Array.from({length:6}).map((_,i)=>(
-                    <tr key={`sk-indici-${i}`} className="hover:bg-slate-50/50">
-                      <td className="px-6 py-4"><SkLine w="70%" /></td>
-                      <td className="px-6 py-4"><SkLine w="40%" /></td>
-                      <td className="px-6 py-4"><SkBadge w={80} h={24} /></td>
-                    </tr>
-                  ))
-                ) : (
-                  indici.map((r, idx, arr) => {
-                    const isLast = idx === arr.length - 1;
-                    const v = String(r.note ?? '');
-                    const kind = v.includes('Azienda NON a Rischio') ? 'ok'
-                                : v.includes('Azienda a Rischio') ? 'bad' : undefined;
-                    return (
-                      <tr key={r.id} className="hover:bg-slate-50/80 group">
-                        <td className={`px-6 py-4 font-medium ${r.missing ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>{r.nome}</td>
-                        <td className="px-6 py-4">
-                          {!r.missing ? (
-                            <span className="font-semibold text-slate-800 flex items-center min-h-[32px]">
-                                {kind && <span className="mr-2"><StatusIconTwo kind={kind} /></span>}
-                                {r.fmt === "%" ? fmtPerc(r.valore) : (r.fmt ? `${r.valore}${r.fmt}` : (r.note || "—"))}
-                            </span>
-                          ) : (
-                            <div className="flex flex-col gap-2">
-                              <button
-                                onClick={()=>openVoci(r)}
-                                className="inline-flex max-w-[max-content] px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 transition-colors shadow-sm"
-                              >
-                                INSERISCI DATI
-                              </button>
-                              {r.missingVoci && (
-                                <span className="text-xs font-medium text-slate-400">
-                                  Richiede {countMissingVoci(r.missingVoci)} voci XBRL
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          {!isLast && <StatusIcon kind={indexStatus(r)} />}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* Questionari (Alert) */}
-        <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm flex flex-col">
-          <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent">
-            <h2 className="font-bold text-slate-800 flex items-center gap-2">
-              <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full"></div>
-              Questionari Allerta (CNDC)
-            </h2>
-          </div>
-          <div className="overflow-x-auto flex-1">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50/50 text-slate-500 font-semibold border-b border-slate-100">
-                <tr>
-                  <th className="px-6 py-4 text-left font-semibold">Voce Questionario</th>
-                  <th className="px-6 py-4 text-left font-semibold">Stato Alert</th>
-                  <th className="px-6 py-4 text-right font-semibold">Azione</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  Array.from({length:5}).map((_,i)=>(
-                    <tr key={`sk-alert-${i}`} className="hover:bg-slate-50/50">
-                      <td className="px-6 py-4"><SkLine w="65%" /></td>
-                      <td className="px-6 py-4"><SkBadge w={70} h={24} /></td>
-                      <td className="px-6 py-4 flex justify-end"><SkBtn w={36} h={36} className="rounded-full" /></td>
-                    </tr>
-                  ))
-                ) : (
-                  ALERT_LINKS.map((a)=> {
-                    const s = alertStatus[a.id] || "missing";
-                    const qVal = qFlags?.[Q_MAP[a.id]];
-                    return (
-                      <tr key={a.id} className="hover:bg-slate-50/80 group">
-                        <td className="px-6 py-4 font-medium text-slate-700">{a.label}</td>
-                        <td className="px-6 py-4">
-                          <StatusIcon kind={s}/>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-3">
-                            {qVal == null ? (
-                              <button
-                                onClick={()=>openQuestionario(a.id)}
-                                className="px-4 py-2 rounded-xl border border-[#D8D2FF] bg-[#ECE8FF] text-[#5b63ff] text-xs font-semibold hover:bg-[#5b63ff] hover:text-white transition-all shadow-sm whitespace-nowrap"
-                              >
-                                COMPILA ORA
-                              </button>
-                            ) : (
-                              <button
-                                onClick={()=>openQuestionario(a.id)}
-                                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all font-semibold"
-                                title="Modifica questionario"
-                              >
-                                <PencilIcon className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <IndiciBasicTable
+          loading={loading}
+          indici={indici}
+          missingCount={missingCount}
+          indexStatus={indexStatus}
+          openVoci={openVoci}
+          countMissingVoci={countMissingVoci}
+        />
+        <AlertTable
+          loading={loading}
+          alertStatus={alertStatus}
+          qFlags={qFlags}
+          openQuestionario={openQuestionario}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 mt-6">
-        {/* Indici Advanced */}
-        <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm">
-          <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent">
-            <h2 className="font-bold text-slate-800 flex items-center gap-2">
-              <div className="w-1.5 h-4 bg-teal-500 rounded-full"></div>
-              Indici Avanzati (Analisi Supplementare)
-            </h2> 
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50/50 text-slate-500 font-semibold border-b border-slate-100">
-                <tr>
-                  <th className="px-6 py-4 text-left font-semibold">Indice Analizzato</th>
-                  <th className="px-6 py-4 text-left font-semibold">Valore Calcolato</th>
-                  <th className="px-6 py-4 text-left font-semibold">Fuori soglia?</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  Array.from({length:4}).map((_,i)=>(
-                    <tr key={`sk-adv-${i}`} className="hover:bg-slate-50/50">
-                      <td className="px-6 py-4"><SkLine w="50%" /></td>
-                      <td className="px-6 py-4"><SkLine w="30%" /></td>
-                      <td className="px-6 py-4"><SkBadge w={80} h={24} /></td>
-                    </tr>
-                  ))
-                ) : (
-                  indiciAdvanced.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50/80 group">
-                      <td className={`px-6 py-4 font-medium ${r.missing ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>{r.nome}</td>
-                      <td className="px-6 py-4">
-                        {!r.missing ? (
-                          <span className="font-semibold text-slate-800 text-base">
-                            {r.fmt === "%" ? fmtPerc(r.valore) : (r.fmt ? `${r.valore}${r.fmt}` : (r.note || "—"))}
-                          </span>
-                        ) : (
-                          <div className="flex flex-col gap-2">
-                            <button
-                              onClick={()=>openVoci(r)}
-                              className="inline-flex max-w-[max-content] px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 transition-colors shadow-sm"
-                            >
-                              INSERISCI DATI
-                            </button>
-                            {r.missingVoci && (
-                              <span className="text-xs font-medium text-slate-400">
-                                Richiede {countMissingVoci(r.missingVoci)} voci XBRL
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusIconTwo kind={indexStatus(r)} />
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <IndiciAdvancedTable
+          loading={loading}
+          indiciAdvanced={indiciAdvanced}
+          indexStatus={indexStatus}
+          openVoci={openVoci}
+          countMissingVoci={countMissingVoci}
+        />
       </div>
 
       {/* TOAST NOTIFICATIONS */}
       {toast && (
-        <div className={`fixed z-[100] bottom-6 right-6 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium animate-slide-up ${
+        <div className={`fixed z-[100] bottom-6 right-6 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium anim-slide-up ${
           toast.type === "success" 
             ? "bg-emerald-50 text-emerald-800 border-emerald-200 shadow-emerald-500/10" 
+            : toast.type === "info"
+            ? "bg-blue-50 text-blue-800 border-blue-200 shadow-blue-500/10"
             : "bg-rose-50 text-rose-800 border-rose-200 shadow-rose-500/10"
         }`}>
           <div className="flex items-center gap-2">
-             <span className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+             <span className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : toast.type === 'info' ? 'bg-blue-500' : 'bg-rose-500'}`} />
              {toast.msg}
           </div>
         </div>
@@ -906,7 +969,7 @@ export default function AnalisiBilancioDettaglio() {
 
       {/* MODALE: VALORI MANCANTI ========================================================= */}
       {modalVoci && (
-        <div className="fixed inset-0 bg-slate-900/50 z-50 grid place-items-center p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-slate-900/50 z-50 grid place-items-center p-4 anim-fade-in">
           <div className="bg-white rounded-2xl w-full max-w-5xl flex flex-col shadow-2xl max-h-[90vh]">
             <div className="p-6 border-b border-slate-100">
               <h3 className="text-xl font-bold text-slate-800">{modalVoci.nome}</h3>
@@ -928,7 +991,7 @@ export default function AnalisiBilancioDettaglio() {
                     {modalVoci.voci.length === 0 ? (
                       <tr><td colSpan={3} className="px-4 py-10 text-center font-medium text-slate-500">Nessuna voce richiesta trovata.</td></tr>
                     ) : modalVoci.voci.map(k=>(
-                      <tr key={k} className="hover:bg-slate-50/50 transition-colors">
+                      <tr key={k} className="hover:bg-slate-50/50 transition-colors duration-150">
                         {(() => {
                           const { base, idx } = splitCombinedKey(k);
                           const periodLabel = idx === "1" ? "Anno Corrente" : idx === "2" ? "Anno Precedente" : "";
@@ -943,7 +1006,7 @@ export default function AnalisiBilancioDettaglio() {
 
                         <td className="px-4 py-3">
                           <input
-                            className="w-full h-9 border border-slate-200 rounded-lg px-3 py-1.5 focus:border-[#5b63ff] focus:ring-1 focus:ring-[#5b63ff] outline-none transition-all shadow-inner font-semibold text-slate-700 bg-slate-50 focus:bg-white"
+                            className="w-full h-9 border border-slate-200 rounded-lg px-3 py-1.5 focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition-all duration-150 shadow-inner font-semibold text-slate-700 bg-slate-50 focus:bg-white"
                             placeholder="0,00"
                             onChange={e=>handleVociChange(k, e.target.value)}
                             inputMode="decimal"
@@ -959,15 +1022,15 @@ export default function AnalisiBilancioDettaglio() {
             <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-white">
               <button 
                 onClick={()=>setModalVoci(null)} 
-                className="h-10 px-5 rounded-xl font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                className="h-10 px-5 rounded-xl font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors duration-150"
                >
                 Annulla
               </button>
               <button 
                 onClick={saveVoci} 
-                className="h-10 px-6 rounded-xl font-semibold bg-[#5b63ff] text-white shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5"
+                className="h-10 px-6 rounded-xl font-semibold bg-[var(--brand)] text-white shadow-md hover:shadow-lg transition-transform duration-200 hover:-translate-y-0.5"
               >
-                Conferma ed elabaora
+                Conferma ed elabora
               </button>
             </div>
           </div>
@@ -976,11 +1039,11 @@ export default function AnalisiBilancioDettaglio() {
 
       {/* MODALE: ANTEPRIMA BILANCIO ========================================================= */}
       {previewOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 z-50 grid place-items-center p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-slate-900/50 z-50 grid place-items-center p-4 anim-fade-in">
           <div className="bg-white rounded-2xl border border-slate-100 w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
               <h3 className="text-xl font-bold text-slate-800">Visualizzatore Anteprima XBRL</h3>
-              <button onClick={()=>setPreviewOpen(false)} className="px-4 py-2 bg-white rounded-lg border border-slate-200 text-sm font-semibold shadow-sm hover:bg-slate-100 transition-colors">Chiudi Preview</button>
+              <button onClick={()=>setPreviewOpen(false)} className="px-4 py-2 bg-white rounded-lg border border-slate-200 text-sm font-semibold shadow-sm hover:bg-slate-100 transition-colors duration-150">Chiudi Preview</button>
             </div>
             <div className="flex-1 overflow-auto p-8 bg-[#f8fafc] content-html-preview">
               {recap?.renderHTML ? (
@@ -988,7 +1051,7 @@ export default function AnalisiBilancioDettaglio() {
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-400">
                   <div className="mb-4"><BarsIcon className="w-16 h-16 opacity-30"/></div>
-                  <h4 className="text-lg font-semibold text-slate-500">Anteprima VIsiva Non Disponibile</h4>
+                  <h4 className="text-lg font-semibold text-slate-500">Anteprima Visiva Non Disponibile</h4>
                   <p className="text-sm mt-1">Il motore non ha restituito markup HTML per questo file.</p>
                 </div>
               )}
@@ -999,7 +1062,7 @@ export default function AnalisiBilancioDettaglio() {
 
       {/* MODALE: QUESTIONARI ========================================================= */}
       {qModal && (
-        <div className="fixed inset-0 bg-slate-900/50 z-50 grid place-items-center p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-slate-900/50 z-50 grid place-items-center p-4 anim-fade-in">
           <div className="bg-white rounded-2xl w-full max-w-2xl flex flex-col flex-1 max-h-[90vh] shadow-2xl">
             <div className="p-6 border-b border-slate-100">
               <div className="text-sm font-bold text-[#f59e0b] uppercase tracking-widest mb-1">Questionario Qualitativo</div>
@@ -1008,7 +1071,7 @@ export default function AnalisiBilancioDettaglio() {
             <div className="overflow-y-auto p-6 flex flex-col gap-6">
               {qModal === "ade" && (
                 <>
-                  <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-xl text-sm font-medium text-blue-800">L’Agenzia delle Entrate si attiva in presenza di un debito IVA scaduto “rilevante”. Compila per stabilire il rischio soglia.</div>
+                  <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-xl text-sm font-medium text-blue-800">L'Agenzia delle Entrate si attiva in presenza di un debito IVA scaduto "rilevante". Compila per stabilire il rischio soglia.</div>
                   <Field label="Debito IVA scaduto non versato (ultima liquidazione trimestrale)">
                     <Input money value={qData.ade.debito}
                       onChange={(v)=>{
@@ -1019,7 +1082,7 @@ export default function AnalisiBilancioDettaglio() {
                         });
                       }}/>
                   </Field>
-                  <Field label="Volume d’affari del trimestre dell’ultima liquidazione IVA">
+                  <Field label="Volume d'affari del trimestre dell'ultima liquidazione IVA">
                     <Input money value={qData.ade.vaTrimestre}
                       onChange={(v)=>{
                         setQData(s=>{
@@ -1029,7 +1092,7 @@ export default function AnalisiBilancioDettaglio() {
                         });
                       }}/>
                   </Field>
-                  <Field label="Volume d’affari della dichiarazione IVA anno precedente (facoltativo)">
+                  <Field label="Volume d'affari della dichiarazione IVA anno precedente (facoltativo)">
                     <Input money value={qData.ade.vaAnnoPrec}
                       onChange={(v)=>setQData(s=>({ ...s, ade:{...s.ade, vaAnnoPrec:v} }))}/>
                   </Field>
@@ -1109,7 +1172,7 @@ export default function AnalisiBilancioDettaglio() {
 
               {qModal === "forn" && (
                 <>
-                  <div className="p-4 bg-purple-50/50 border border-purple-100 rounded-xl text-sm font-medium text-purple-800">Viene valutata l'esistenza di debiti verso fornitori scaduti da oltre 120 giorni d’ammontare maggiore rispetto a quelli non scaduti.</div>
+                  <div className="p-4 bg-purple-50/50 border border-purple-100 rounded-xl text-sm font-medium text-purple-800">Viene valutata l'esistenza di debiti verso fornitori scaduti da oltre 120 giorni d'ammontare maggiore rispetto a quelli non scaduti.</div>
                   <Field label="Ammontare dei debiti di fornitura scaduti da oltre 120 giorni">
                     <Input money value={qData.forn.debiti}
                       onChange={(v)=>setQData(s=>({ ...s, forn:{...s.forn, debiti:v} }))}/>
@@ -1123,8 +1186,8 @@ export default function AnalisiBilancioDettaglio() {
             </div>
 
             <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/30">
-              <button onClick={()=>setQModal(null)} className="h-10 px-6 rounded-xl font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors">Ignora e Chiudi</button>
-              <button onClick={saveQuestionari} className="h-10 px-8 rounded-xl font-bold bg-[#1e293b] text-white shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5">
+              <button onClick={()=>setQModal(null)} className="h-10 px-6 rounded-xl font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Ignora e Chiudi</button>
+              <button onClick={saveQuestionari} className="h-10 px-8 rounded-xl font-bold bg-[#1e293b] text-white shadow-md hover:shadow-lg transition-transform duration-200 hover:-translate-y-0.5">
                 Salva Modifiche
               </button>
             </div>
@@ -1154,7 +1217,7 @@ function Input({ value, onChange, placeholder="0,00", money=false }) {
         value={value ?? ""}
         onChange={(e)=>onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full pl-8 pr-4 h-11 border border-slate-200 rounded-xl focus:border-[#5b63ff] focus:ring-2 focus:ring-[#5b63ff]/20 bg-slate-50 text-slate-800 font-semibold focus:bg-white outline-none transition-all"
+        className="w-full pl-8 pr-4 h-11 border border-slate-200 rounded-xl focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/20 bg-slate-50 text-slate-800 font-semibold focus:bg-white outline-none transition-all duration-150"
         inputMode={money ? "decimal" : "text"}
       />
       {money && <span className="absolute left-3.5 top-[11px] font-semibold text-slate-400">€</span>}

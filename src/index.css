@@ -1,6 +1,44 @@
 /* src/index.css */
 @import "tailwindcss";
 
+/* ───── Design Tokens ───── */
+:root {
+  --brand: #5b63ff;
+  --brand-dark: #454de0;
+  --brand-light: #ECE8FF;
+  --brand-border: #D8D2FF;
+  --sk-bg: #e8ecf1;
+}
+
 html, body, #root {
   height: 100%;
 }
+
+/* ───── Animations (referenced across pages) ───── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.anim-fade-in-up {
+  animation: fadeInUp 0.35s ease-out both;
+}
+.anim-fade-in {
+  animation: fadeIn 0.2s ease-out both;
+}
+.anim-slide-up {
+  animation: slideUp 0.3s ease-out both;
+}
+
+/* Legacy class aliases used in other pages (keep backward compat) */
+.animate-fade-in-up { animation: fadeInUp 0.35s ease-out both; }
+.animate-fade-in    { animation: fadeIn  0.2s ease-out both; }
+.animate-slide-up   { animation: slideUp 0.3s ease-out both; }
