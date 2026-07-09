@@ -1,5 +1,6 @@
 // src/pages/AnalisiBilancioDettaglio.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useParams, Link } from "react-router-dom";
 import { Gauge } from "../components/ui/Gauge";
 import { Badge } from "../components/ui/Badge";
@@ -217,13 +218,14 @@ const SkCircle = ({ size=96 }) => (
 
 function FullPageLoader({ show }) {
   if (!show) return null;
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] bg-slate-900/50 grid place-items-center anim-fade-in" role="status">
       <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-2xl shadow-xl">
         <div className="h-10 w-10 border-4 border-slate-100 border-t-[var(--brand)] rounded-full animate-spin" style={{ willChange: 'transform' }} />
         <div className="text-sm font-semibold text-slate-700">Elaborazione bilancio in corso...</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -952,7 +954,7 @@ export default function AnalisiBilancioDettaglio() {
       </div>
 
       {/* TOAST NOTIFICATIONS */}
-      {toast && (
+      {toast && createPortal(
         <div className={`fixed z-[100] bottom-6 right-6 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium anim-slide-up ${
           toast.type === "success" 
             ? "bg-emerald-50 text-emerald-800 border-emerald-200 shadow-emerald-500/10" 
@@ -964,11 +966,12 @@ export default function AnalisiBilancioDettaglio() {
              <span className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500' : toast.type === 'info' ? 'bg-blue-500' : 'bg-rose-500'}`} />
              {toast.msg}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODALE: VALORI MANCANTI ========================================================= */}
-      {modalVoci && (
+      {modalVoci && createPortal(
         <div className="fixed inset-0 bg-slate-900/50 z-50 grid place-items-center p-4 anim-fade-in">
           <div className="bg-white rounded-2xl w-full max-w-5xl flex flex-col shadow-2xl max-h-[90vh]">
             <div className="p-6 border-b border-slate-100">
@@ -1034,11 +1037,12 @@ export default function AnalisiBilancioDettaglio() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODALE: ANTEPRIMA BILANCIO ========================================================= */}
-      {previewOpen && (
+      {previewOpen && createPortal(
         <div className="fixed inset-0 bg-slate-900/50 z-50 grid place-items-center p-4 anim-fade-in">
           <div className="bg-white rounded-2xl border border-slate-100 w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
@@ -1057,11 +1061,12 @@ export default function AnalisiBilancioDettaglio() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODALE: QUESTIONARI ========================================================= */}
-      {qModal && (
+      {qModal && createPortal(
         <div className="fixed inset-0 bg-slate-900/50 z-50 grid place-items-center p-4 anim-fade-in">
           <div className="bg-white rounded-2xl w-full max-w-2xl flex flex-col flex-1 max-h-[90vh] shadow-2xl">
             <div className="p-6 border-b border-slate-100">
@@ -1192,7 +1197,8 @@ export default function AnalisiBilancioDettaglio() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Overlay loader main data fetching */}
