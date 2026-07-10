@@ -266,8 +266,7 @@ const IndiciBasicTable = React.memo(function IndiciBasicTable({ loading, indici,
                 </tr>
               ))
             ) : (
-              indici.map((r, idx, arr) => {
-                const isLast = idx === arr.length - 1;
+              indici.map((r) => {
                 const v = String(r.note ?? '');
                 const kind = v.includes('Azienda NON a Rischio') ? 'ok'
                             : v.includes('Azienda a Rischio') ? 'bad' : undefined;
@@ -297,7 +296,7 @@ const IndiciBasicTable = React.memo(function IndiciBasicTable({ loading, indici,
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      {!isLast && <StatusIcon kind={indexStatus(r)} />}
+                      <StatusIcon kind={indexStatus(r)} />
                     </td>
                   </tr>
                 );
