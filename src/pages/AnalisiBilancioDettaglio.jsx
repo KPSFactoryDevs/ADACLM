@@ -454,44 +454,6 @@ const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, i
   };
   return (
     <div className="space-y-6">
-      {/* ── Card Valutazione Avanzata (stile hero) ── */}
-      <section className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col xl:flex-row items-center xl:items-stretch gap-6">
-        <div className="shrink-0 flex items-center justify-center pt-2 xl:pt-0 xl:pr-6 xl:border-r border-slate-100">
-          <div className="text-center">
-            {loading ? (
-              <>
-                <SkCircle size={120} />
-                <div className="mt-3"><SkLine w={80} h={12} className="mx-auto" /></div>
-              </>
-            ) : (
-              <div className="relative">
-                <div
-                  className="absolute inset-0 rounded-full blur-xl opacity-20 transition-colors duration-700"
-                  style={{ backgroundColor: advRating.color }}
-                />
-                <Gauge value={advancedScore ?? 0} color={advRating.color} size={120} stroke={12} label="Scoring" subtitle="su 100" />
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex-1 w-full flex flex-col justify-center">
-          <div className="text-sm text-teal-600 font-semibold uppercase tracking-widest">Valutazione Complessiva</div>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">
-            {loading ? <SkLine w={220} h={28} /> : "Scoring Bilancio"}
-          </h2>
-          <div className="mt-2 text-sm text-slate-500 max-w-xl leading-relaxed">
-            {loading ? <SkLine w={300} /> : "Indici primari, indici avanzati, questionari allerta e completezza dati."}
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-4">
-            <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">{loading ? <SkLine w={60} /> : "Giudizio"}</span>
-            {loading ? (
-              <SkBadge w={130} />
-            ) : (
-              <Pill text={advRating.label} color={advRating.color} className="text-base px-5 py-1.5" />
-            )}
-          </div>
-        </div>
-      </section>
 
       {/* ── Tabella Indici Avanzati ── */}
       <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm">
@@ -978,116 +940,142 @@ export default function AnalisiBilancioDettaglio() {
   /* ======================= Render ======================= */
   return (
     <div className="space-y-6 pb-20 font-sans min-h-screen text-slate-800 anim-fade-in-up">
-      <Link to="/analisi-bilancio" className="inline-flex items-center gap-2 text-sm text-[var(--brand)] hover:text-[var(--brand-dark)] font-semibold transition-colors duration-150">
-        <ArrowRightIcon className="w-4 h-4 rotate-180" /> Torna a tutti i bilanci
-      </Link>
-      
-      {/* HERO SECTION */}
-      <section className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col xl:flex-row items-center xl:items-stretch gap-6">
-        <div className="shrink-0 flex items-center justify-center pt-2 xl:pt-0 xl:pr-6 xl:border-r border-slate-100">
+      {/* ── TOP BAR: back + action buttons ── */}
+      <div className="flex items-center justify-between">
+        <Link to="/analisi-bilancio" className="inline-flex items-center gap-2 text-sm text-[var(--brand)] hover:text-[var(--brand-dark)] font-semibold transition-colors duration-150">
+          <ArrowRightIcon className="w-4 h-4 rotate-180" /> Torna a tutti i bilanci
+        </Link>
+        <div className="shrink-0 flex items-center gap-3 print:hidden">
+          {loading ? <SkBtn w={160} /> : (
+            <>
+              <button
+                onClick={downloadReport}
+                disabled={pdfLoading}
+                className={`h-10 px-5 rounded-xl border text-sm font-semibold shadow-sm transition-all duration-200 flex items-center gap-2 ${pdfLoading ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-wait' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'}`}
+              >
+                {pdfLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+                    Generazione...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Stampa Relazione
+                  </>
+                )}
+              </button>
+              <button
+                onClick={()=>setPreviewOpen(true)}
+                className="h-10 px-5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                Anteprima bilancio {'>'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── HERO: Valutazione Complessiva (Score Totale) ── */}
+      <section className="bg-white border border-slate-200/60 rounded-2xl p-8 shadow-sm flex flex-col xl:flex-row items-center xl:items-stretch gap-8">
+        <div className="shrink-0 flex items-center justify-center pt-2 xl:pt-0 xl:pr-8 xl:border-r border-slate-100">
           <div className="text-center">
             {loading ? (
               <>
-                <SkCircle size={140} />
+                <SkCircle size={150} />
                 <div className="mt-3"><SkLine w={90} h={12} className="mx-auto" /></div>
               </>
             ) : (
-              <div className="relative flex flex-col items-center">
+              <div className="relative">
                 <div
                   className="absolute inset-0 rounded-full blur-xl opacity-20 transition-colors duration-700"
-                  style={{ backgroundColor: cndcecResult === 'ok' ? '#16a34a' : cndcecResult === 'bad' ? '#ef4444' : '#a3a3a3', width: 120, height: 120, margin: 'auto' }}
+                  style={{ backgroundColor: advRating.color }}
                 />
-                <div
-                  className="w-[120px] h-[120px] rounded-full flex items-center justify-center shadow-lg border-4 transition-all duration-500"
-                  style={{
-                    backgroundColor: cndcecResult === 'ok' ? '#dcfce7' : cndcecResult === 'bad' ? '#fef2f2' : '#f8fafc',
-                    borderColor: cndcecResult === 'ok' ? '#22c55e' : cndcecResult === 'bad' ? '#ef4444' : '#cbd5e1',
-                  }}
-                >
-                  {cndcecResult === 'ok' ? (
-                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                      <path d="M9 12l2 2 4-4"/>
-                    </svg>
-                  ) : cndcecResult === 'bad' ? (
-                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                      <path d="M12 9v4"/><path d="M12 17h.01"/>
-                    </svg>
-                  ) : (
-                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10"/>
-                      <path d="M12 8v4"/><path d="M12 16h.01"/>
-                    </svg>
-                  )}
-                </div>
-                <div className="mt-3 text-xs font-bold uppercase tracking-widest" style={{ color: cndcecResult === 'ok' ? '#16a34a' : cndcecResult === 'bad' ? '#ef4444' : '#94a3b8' }}>
-                  Indice CNDCEC
-                </div>
+                <Gauge value={advancedScore ?? 0} color={advRating.color} size={150} stroke={14} label="Score" subtitle="su 100" />
               </div>
             )}
           </div>
         </div>
-
         <div className="flex-1 w-full flex flex-col justify-center">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm text-[var(--brand)] font-semibold uppercase tracking-widest">Rapporto Dettagliato</div>
-              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">
-                {loading ? <SkLine w={280} h={32} /> : <>Panoramica di Azienda Censurata</>}
-              </h1>
-              <div className="mt-2 text-sm text-slate-500 max-w-xl leading-relaxed">
-                {loading ? <SkLine w={340} /> : "Valutazione secondo gli indicatori del Consiglio Nazionale dei Dottori Commercialisti ed Esperti Contabili (CNDCEC)."}
-              </div>
-              <div className="mt-5 flex flex-wrap items-center gap-4">
-                <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">{loading ? <SkLine w={60} /> : "Esito"}</span>
-                {loading ? (
-                  <SkBadge w={200} />
-                ) : (
-                  <Pill
-                    text={cndcecResult === 'ok' ? 'Azienda NON a Rischio' : cndcecResult === 'bad' ? 'Azienda a Rischio' : 'Dati insufficienti'}
-                    color={cndcecResult === 'ok' ? '#16a34a' : cndcecResult === 'bad' ? '#ef4444' : '#94a3b8'}
-                    className="text-base px-5 py-1.5"
-                  />
-                )}
-              </div>
-            </div>
-
-            <div className="shrink-0 flex items-center gap-3">
-              {loading ? <SkBtn w={160} /> : (
-                <>
-                  <button
-                    onClick={downloadReport}
-                    disabled={pdfLoading}
-                    className={`h-10 px-5 rounded-xl border text-sm font-semibold shadow-sm transition-all duration-200 flex items-center gap-2 print:hidden ${pdfLoading ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-wait' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'}`}
-                  >
-                    {pdfLoading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
-                        Generazione in corso...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                        </svg>
-                        Stampa Relazione
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={()=>setPreviewOpen(true)}
-                    className="h-10 px-5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 shadow-md hover:shadow-lg transition-all duration-200 print:hidden"
-                  >
-                    Anteprima bilancio {'>'}
-                  </button>
-                </>
-              )}
-            </div>
+          <div className="text-sm text-[var(--brand)] font-semibold uppercase tracking-widest">Panoramica</div>
+          <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">
+            {loading ? <SkLine w={280} h={32} /> : "Valutazione Complessiva"}
+          </h1>
+          <div className="mt-2 text-sm text-slate-500 max-w-xl leading-relaxed">
+            {loading ? <SkLine w={340} /> : "Score totale calcolato su indici primari (45%), indici avanzati (25%), questionari allerta (20%) e completezza dati (10%)."}
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-4">
+            <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">{loading ? <SkLine w={60} /> : "Giudizio"}</span>
+            {loading ? (
+              <SkBadge w={160} />
+            ) : (
+              <Pill text={advRating.label} color={advRating.color} className="text-base px-5 py-1.5" />
+            )}
           </div>
           {loadErr && <div className="mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700 font-medium">Errore: {loadErr}</div>}
         </div>
       </section>
+
+      {/* ── CNDCEC NOTICE BANNER ── */}
+      {!loading && (
+        <div className={`flex items-center gap-5 px-6 py-4 rounded-2xl border-2 transition-all duration-500 ${
+          cndcecResult === 'ok'
+            ? 'bg-emerald-50/80 border-emerald-300'
+            : cndcecResult === 'bad'
+            ? 'bg-red-50/80 border-red-300'
+            : 'bg-slate-50 border-slate-200'
+        }`}>
+          {/* Large shield icon */}
+          <div className="shrink-0">
+            <div
+              className="w-16 h-16 rounded-xl flex items-center justify-center shadow-md"
+              style={{
+                backgroundColor: cndcecResult === 'ok' ? '#dcfce7' : cndcecResult === 'bad' ? '#fef2f2' : '#f8fafc',
+                border: `2px solid ${cndcecResult === 'ok' ? '#22c55e' : cndcecResult === 'bad' ? '#ef4444' : '#cbd5e1'}`,
+              }}
+            >
+              {cndcecResult === 'ok' ? (
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  <path d="M9 12l2 2 4-4"/>
+                </svg>
+              ) : cndcecResult === 'bad' ? (
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                  <path d="M12 9v4"/><path d="M12 17h.01"/>
+                </svg>
+              ) : (
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 8v4"/><path d="M12 16h.01"/>
+                </svg>
+              )}
+            </div>
+          </div>
+          {/* Notice text */}
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: cndcecResult === 'ok' ? '#16a34a' : cndcecResult === 'bad' ? '#ef4444' : '#94a3b8' }}>
+              Indice CNDCEC
+            </div>
+            <div className="text-base font-bold" style={{ color: cndcecResult === 'ok' ? '#15803d' : cndcecResult === 'bad' ? '#dc2626' : '#64748b' }}>
+              {cndcecResult === 'ok' ? 'Azienda NON a Rischio — Tutti gli indici primari sono in soglia' : cndcecResult === 'bad' ? 'Azienda a Rischio — Almeno un indice primario è fuori soglia' : 'Dati insufficienti per il calcolo'}
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              Valutazione secondo il Consiglio Nazionale dei Dottori Commercialisti ed Esperti Contabili
+            </div>
+          </div>
+          {/* Pill badge */}
+          <div className="shrink-0">
+            <Pill
+              text={cndcecResult === 'ok' ? 'NON a Rischio' : cndcecResult === 'bad' ? 'A Rischio' : 'N/A'}
+              color={cndcecResult === 'ok' ? '#16a34a' : cndcecResult === 'bad' ? '#ef4444' : '#94a3b8'}
+              className="text-sm px-4 py-1"
+            />
+          </div>
+        </div>
+      )}
 
       {/* INDICI PRIMARI — 5 card su una riga */}
       <IndiciBasicTable
