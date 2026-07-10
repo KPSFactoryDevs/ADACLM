@@ -446,22 +446,36 @@ const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, i
               <th className="px-6 py-4 text-left font-semibold">Indice Analizzato</th>
               <th className="px-6 py-4 text-left font-semibold">Valore Calcolato</th>
               <th className="px-6 py-4 text-left font-semibold">Giudizio</th>
-              <th className="px-6 py-4 text-left font-semibold">Fuori soglia?</th>
+              <th className="px-6 py-4 text-left font-semibold text-slate-400 text-xs">Fuori soglia</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100/60">
             {loading ? (
               Array.from({length:4}).map((_,i)=>(
                 <tr key={`sk-adv-${i}`}>
                   <td className="px-6 py-4"><SkLine w="50%" /></td>
                   <td className="px-6 py-4"><SkLine w="30%" /></td>
                   <td className="px-6 py-4"><SkBadge w={90} h={24} /></td>
-                  <td className="px-6 py-4"><SkBadge w={80} h={24} /></td>
+                  <td className="px-6 py-4"><SkLine w={30} h={12} /></td>
                 </tr>
               ))
             ) : (
-              indiciAdvanced.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50/80 transition-colors duration-150 group">
+              [...indiciAdvanced]
+                .sort((a, b) => {
+                  const order = { 'Rischio Elevato': 0, 'Situazione Critica': 1, 'Buono': 2, 'Ottimo': 3 };
+                  const gA = advancedGiudizi?.[a.nome];
+                  const gB = advancedGiudizi?.[b.nome];
+                  const oA = gA && gA !== false ? (order[gA.Giudizio] ?? 4) : (a.missing ? 5 : 4);
+                  const oB = gB && gB !== false ? (order[gB.Giudizio] ?? 4) : (b.missing ? 5 : 4);
+                  return oA - oB;
+                })
+                .map((r) => {
+                  const g = advancedGiudizi?.[r.nome];
+                  const giudizio = g && g !== false ? (g.Giudizio || null) : null;
+                  const colors = giudizio ? (GIUDIZIO_COLORS[giudizio] || GIUDIZIO_DEFAULT) : null;
+                  const rowBg = colors ? `${colors.bg}66` : 'transparent'; // very light tint
+                  return (
+                <tr key={r.id} className="transition-colors duration-150 group" style={{ backgroundColor: rowBg }}>
                   <td className={`px-6 py-4 font-medium ${r.missing ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>{r.nome}</td>
                   <td className="px-6 py-4">
                     {!r.missing ? (
@@ -485,26 +499,29 @@ const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, i
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    {(() => {
-                      const g = advancedGiudizi?.[r.nome];
-                      if (!g || g === false) return <span className="text-xs text-slate-400">—</span>;
-                      const giudizio = g.Giudizio || 'N/A';
-                      const colors = GIUDIZIO_COLORS[giudizio] || GIUDIZIO_DEFAULT;
-                      return (
-                        <span
-                          className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap"
-                          style={{ backgroundColor: colors.bg, color: colors.text, border: `1px solid ${colors.border}` }}
-                        >
-                          {giudizio}
-                        </span>
-                      );
-                    })()}
+                    {giudizio ? (
+                      <span
+                        className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap"
+                        style={{ backgroundColor: colors.bg, color: colors.text, border: `1px solid ${colors.border}` }}
+                      >
+                        {giudizio}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4">
-                    <StatusIconTwo kind={indexStatus(r)} />
+                    {r.missing ? (
+                      <span className="text-xs text-slate-400">—</span>
+                    ) : (() => {
+                      const f = String(r.fuori).toLowerCase();
+                      const isFuori = f.startsWith("sì") || f === "si";
+                      return <span className={`text-xs font-medium ${isFuori ? 'text-rose-500' : 'text-slate-400'}`}>{isFuori ? 'Sì' : 'No'}</span>;
+                    })()}
                   </td>
                 </tr>
-              ))
+                  );
+                })
             )}
           </tbody>
         </table>
