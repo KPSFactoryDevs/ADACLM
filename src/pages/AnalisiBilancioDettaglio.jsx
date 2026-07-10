@@ -868,13 +868,16 @@ export default function AnalisiBilancioDettaglio() {
   };
 
   const openVoci = (row) => {
-    let voci = listMissingKeys(row?.missingVoci);
+    // Combina le voci specifiche dell'indice con TUTTE le voci mancanti globali
+    // per evitare che l'utente debba compilare più volte scoprendo nuove voci
+    const specific = listMissingKeys(row?.missingVoci);
+    const global = recap?.bilancioAnalisi?.indiceVociMancanti
+      ? getAllMissingKeys(recap.bilancioAnalisi.indiceVociMancanti)
+      : [];
     
-    // If the index requires missing voices but none were found mapped specifically to it
-    // (e.g. they are mapped under shared keys like "Totale Crediti"), fallback to ALL missing voices
-    if (voci.length === 0 && recap?.bilancioAnalisi?.indiceVociMancanti) {
-      voci = getAllMissingKeys(recap.bilancioAnalisi.indiceVociMancanti);
-    }
+    // Unisci senza duplicati
+    const set = new Set([...specific, ...global]);
+    const voci = Array.from(set);
 
     const prefill = {};
     const init = {};
