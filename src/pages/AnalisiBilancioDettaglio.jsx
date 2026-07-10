@@ -380,28 +380,57 @@ const AlertTable = React.memo(function AlertTable({ loading, alertStatus, qFlags
 });
 
 /** Indici Avanzati Table — React.memo */
-const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, indiciAdvanced, indexStatus, openVoci, countMissingVoci, advancedGiudizio }) {
+const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, indiciAdvanced, indexStatus, openVoci, countMissingVoci, advancedGiudizio, advancedScore }) {
   const advRating = classifyAdv(advancedGiudizio);
   return (
-    <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm">
-      <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent flex items-center justify-between">
-        <h2 className="font-bold text-slate-800 flex items-center gap-2">
-          <div className="w-1.5 h-4 bg-teal-500 rounded-full"></div>
-          Indici Avanzati (Analisi Supplementare)
-        </h2>
-        {!loading && advancedGiudizio && (
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Valutazione Bilancio</span>
-            <span
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold text-white shadow-sm"
-              style={{ backgroundColor: advRating.color }}
-            >
-              <span className="w-2 h-2 rounded-full bg-white/30"></span>
-              {advRating.label}
-            </span>
+    <div className="space-y-6">
+      {/* ── Card Valutazione Avanzata (stile hero) ── */}
+      <section className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col xl:flex-row items-center xl:items-stretch gap-6">
+        <div className="shrink-0 flex items-center justify-center pt-2 xl:pt-0 xl:pr-6 xl:border-r border-slate-100">
+          <div className="text-center">
+            {loading ? (
+              <>
+                <SkCircle size={120} />
+                <div className="mt-3"><SkLine w={80} h={12} className="mx-auto" /></div>
+              </>
+            ) : (
+              <div className="relative">
+                <div
+                  className="absolute inset-0 rounded-full blur-xl opacity-20 transition-colors duration-700"
+                  style={{ backgroundColor: advRating.color }}
+                />
+                <Gauge value={advancedScore ?? 0} color={advRating.color} size={120} stroke={12} label="Scoring" subtitle="su 100" />
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+        <div className="flex-1 w-full flex flex-col justify-center">
+          <div className="text-sm text-teal-600 font-semibold uppercase tracking-widest">Valutazione Bilancio</div>
+          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">
+            {loading ? <SkLine w={220} h={28} /> : "Indici Avanzati"}
+          </h2>
+          <div className="mt-2 text-sm text-slate-500 max-w-xl leading-relaxed">
+            {loading ? <SkLine w={300} /> : "Punteggio calcolato sugli indici avanzati di bilancio. Questo giudizio è lo stesso mostrato nella Dashboard e nella pagina Allerta."}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">{loading ? <SkLine w={60} /> : "Giudizio"}</span>
+            {loading ? (
+              <SkBadge w={130} />
+            ) : (
+              <Pill text={advRating.label} color={advRating.color} className="text-base px-5 py-1.5" />
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Tabella Indici Avanzati ── */}
+      <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent">
+          <h2 className="font-bold text-slate-800 flex items-center gap-2">
+            <div className="w-1.5 h-4 bg-teal-500 rounded-full"></div>
+            Indici Avanzati (Analisi Supplementare)
+          </h2>
+        </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-100">
@@ -455,6 +484,7 @@ const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, i
         </table>
       </div>
     </section>
+    </div>
   );
 });
 
@@ -475,6 +505,7 @@ export default function AnalisiBilancioDettaglio() {
   const [score, setScore] = useState(null);
   // score Advanced dal backend (stessa logica dell'allerta/dashboard)
   const [advancedGiudizio, setAdvancedGiudizio] = useState(null);
+  const [advancedScore, setAdvancedScore] = useState(null);
   const rating = classify(score ?? 0);
 
   // indici UI (persist per documento)
@@ -523,6 +554,11 @@ export default function AnalisiBilancioDettaglio() {
     // Leggi lo score Advanced dal backend (stessa logica dell'allerta)
     const advGiudizio = payload?.bilancioAnalisi?.AdvancedGiudizio ?? null;
     if (advGiudizio) setAdvancedGiudizio(advGiudizio);
+    const advScoreRaw = payload?.bilancioAnalisi?.AdvancedScore ?? null;
+    if (advScoreRaw != null) {
+      const s = parseNum(advScoreRaw);
+      if (s != null) setAdvancedScore(Math.max(0, Math.min(100, Math.round(s <= 1 ? s * 100 : s))));
+    }
 
     const missingMap = {};
     const missSrc = payload?.bilancioAnalisi?.indiceVociMancanti || {};
@@ -961,6 +997,7 @@ export default function AnalisiBilancioDettaglio() {
           openVoci={openVoci}
           countMissingVoci={countMissingVoci}
           advancedGiudizio={advancedGiudizio}
+          advancedScore={advancedScore}
         />
       </div>
 
