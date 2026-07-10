@@ -1006,8 +1006,8 @@ export default function AnalisiBilancioDettaglio() {
                 />
                 {/* SVG cerchio tratteggiato quando dati incompleti */}
                 {missingCount > 0 && (
-                  <svg className="absolute -inset-3 w-[calc(100%+24px)] h-[calc(100%+24px)] animate-[spin_30s_linear_infinite]" viewBox="0 0 176 176">
-                    <circle cx="88" cy="88" r="84" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeDasharray="8 6" strokeLinecap="round" opacity="0.7" />
+                  <svg className="absolute -inset-1 w-[calc(100%+8px)] h-[calc(100%+8px)] animate-[spin_60s_linear_infinite]" viewBox="0 0 158 158">
+                    <circle cx="79" cy="79" r="77" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="5 4" strokeLinecap="round" opacity="0.55" />
                   </svg>
                 )}
                 <Gauge value={advancedScore ?? 0} color={advRating.color} size={150} stroke={14} label="Score" subtitle="su 100" />
