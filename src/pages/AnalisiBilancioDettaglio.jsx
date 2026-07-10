@@ -679,19 +679,29 @@ export default function AnalisiBilancioDettaglio() {
     // Estrai l'ultimo indice (CNDCEC) e rimuovilo dalla tabella
     if (arr.length > 0) {
       const lastItem = arr[arr.length - 1];
-      const noteStr = String(lastItem.note ?? '').toLowerCase();
-      if (noteStr.includes('non a rischio') || noteStr.includes('non rischio')) {
-        setCndcecResult('ok');
-        setCndcecNote(lastItem.note);
-      } else if (noteStr.includes('rischio')) {
-        setCndcecResult('bad');
-        setCndcecNote(lastItem.note);
-      } else if (lastItem.missing) {
+      // Controlla se ci sono indici primari non calcolati (escluso CNDCEC stesso)
+      const primaryIndices = arr.slice(0, -1); // tutti tranne CNDCEC
+      const hasMissingPrimary = primaryIndices.some(idx => idx.missing || idx.valore === null);
+
+      if (hasMissingPrimary) {
+        // Se mancano indici primari → CNDCEC non è calcolabile
         setCndcecResult('missing');
-        setCndcecNote(null);
+        setCndcecNote('Non calcolabile — alcuni indici primari non sono disponibili');
       } else {
-        setCndcecResult(lastItem.fuori === 'No' ? 'ok' : 'bad');
-        setCndcecNote(lastItem.note);
+        const noteStr = String(lastItem.note ?? '').toLowerCase();
+        if (noteStr.includes('non a rischio') || noteStr.includes('non rischio')) {
+          setCndcecResult('ok');
+          setCndcecNote(lastItem.note);
+        } else if (noteStr.includes('rischio')) {
+          setCndcecResult('bad');
+          setCndcecNote(lastItem.note);
+        } else if (lastItem.missing) {
+          setCndcecResult('missing');
+          setCndcecNote(null);
+        } else {
+          setCndcecResult(lastItem.fuori === 'No' ? 'ok' : 'bad');
+          setCndcecNote(lastItem.note);
+        }
       }
       arr.pop(); // rimuovi CNDCEC dalla tabella
     }
@@ -994,7 +1004,16 @@ export default function AnalisiBilancioDettaglio() {
                   className="absolute inset-0 rounded-full blur-xl opacity-20 transition-colors duration-700"
                   style={{ backgroundColor: advRating.color }}
                 />
+                {/* Cerchio tratteggiato quando dati incompleti */}
+                {missingCount > 0 && (
+                  <div className="absolute -inset-2 rounded-full" style={{ border: '3px dashed #f59e0b' }} />
+                )}
                 <Gauge value={advancedScore ?? 0} color={advRating.color} size={150} stroke={14} label="Score" subtitle="su 100" />
+                {missingCount > 0 && (
+                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-bold text-amber-500 bg-white px-2 rounded-full border border-amber-200 whitespace-nowrap shadow-sm">
+                    Dati incompleti
+                  </div>
+                )}
               </div>
             )}
           </div>
