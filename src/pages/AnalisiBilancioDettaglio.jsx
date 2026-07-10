@@ -390,6 +390,47 @@ const GIUDIZIO_DEFAULT = { bg: '#f1f5f9', text: '#475569', border: '#e2e8f0' };
 /** Indici Avanzati Table — React.memo */
 const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, indiciAdvanced, indexStatus, openVoci, countMissingVoci, advancedGiudizio, advancedScore, advancedGiudizi }) {
   const advRating = classifyAdv(advancedGiudizio);
+  const [sortCol, setSortCol] = useState('giudizio');
+  const [sortDir, setSortDir] = useState('asc'); // asc = più grave prima
+
+  const toggleSort = (col) => {
+    if (sortCol === col) { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }
+    else { setSortCol(col); setSortDir('asc'); }
+  };
+
+  const GIUDIZIO_ORDER = { 'Rischio Elevato': 0, 'Situazione Critica': 1, 'Buono': 2, 'Ottimo': 3 };
+
+  const sorted = useMemo(() => {
+    if (!indiciAdvanced.length) return [];
+    return [...indiciAdvanced].sort((a, b) => {
+      let cmp = 0;
+      if (sortCol === 'nome') {
+        cmp = a.nome.localeCompare(b.nome, 'it');
+      } else if (sortCol === 'valore') {
+        const vA = a.valore ?? -Infinity;
+        const vB = b.valore ?? -Infinity;
+        cmp = vA - vB;
+      } else if (sortCol === 'giudizio') {
+        const gA = advancedGiudizi?.[a.nome];
+        const gB = advancedGiudizi?.[b.nome];
+        const oA = gA && gA !== false ? (GIUDIZIO_ORDER[gA.Giudizio] ?? 4) : (a.missing ? 5 : 4);
+        const oB = gB && gB !== false ? (GIUDIZIO_ORDER[gB.Giudizio] ?? 4) : (b.missing ? 5 : 4);
+        cmp = oA - oB;
+      } else if (sortCol === 'fuori') {
+        const fA = String(a.fuori).toLowerCase();
+        const fB = String(b.fuori).toLowerCase();
+        const sA = fA.startsWith("sì") || fA === "si" ? 0 : (a.missing ? 2 : 1);
+        const sB = fB.startsWith("sì") || fB === "si" ? 0 : (b.missing ? 2 : 1);
+        cmp = sA - sB;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [indiciAdvanced, sortCol, sortDir, advancedGiudizi]);
+
+  const SortChevron = ({ col }) => {
+    if (sortCol !== col) return <span className="text-slate-300 ml-1">↕</span>;
+    return <span className="text-slate-600 ml-1">{sortDir === 'asc' ? '▲' : '▼'}</span>;
+  };
   return (
     <div className="space-y-6">
       {/* ── Card Valutazione Avanzata (stile hero) ── */}
@@ -443,10 +484,15 @@ const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, i
         <table className="w-full text-sm">
           <thead className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-100">
             <tr>
-              <th className="px-6 py-4 text-left font-semibold">Indice Analizzato</th>
-              <th className="px-6 py-4 text-left font-semibold">Valore Calcolato</th>
-              <th className="px-6 py-4 text-left font-semibold">Giudizio</th>
-              <th className="px-6 py-4 text-left font-semibold text-slate-400 text-xs">Fuori soglia</th>
+              <th className="px-6 py-4 text-left font-semibold cursor-pointer select-none hover:text-slate-800 transition-colors" onClick={() => toggleSort('nome')}>
+                Indice Analizzato<SortChevron col="nome" />
+              </th>
+              <th className="px-6 py-4 text-left font-semibold cursor-pointer select-none hover:text-slate-800 transition-colors" onClick={() => toggleSort('valore')}>
+                Valore Calcolato<SortChevron col="valore" />
+              </th>
+              <th className="px-6 py-4 text-left font-semibold cursor-pointer select-none hover:text-slate-800 transition-colors" onClick={() => toggleSort('giudizio')}>
+                Giudizio<SortChevron col="giudizio" />
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100/60">
@@ -456,27 +502,27 @@ const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, i
                   <td className="px-6 py-4"><SkLine w="50%" /></td>
                   <td className="px-6 py-4"><SkLine w="30%" /></td>
                   <td className="px-6 py-4"><SkBadge w={90} h={24} /></td>
-                  <td className="px-6 py-4"><SkLine w={30} h={12} /></td>
                 </tr>
               ))
             ) : (
-              [...indiciAdvanced]
-                .sort((a, b) => {
-                  const order = { 'Rischio Elevato': 0, 'Situazione Critica': 1, 'Buono': 2, 'Ottimo': 3 };
-                  const gA = advancedGiudizi?.[a.nome];
-                  const gB = advancedGiudizi?.[b.nome];
-                  const oA = gA && gA !== false ? (order[gA.Giudizio] ?? 4) : (a.missing ? 5 : 4);
-                  const oB = gB && gB !== false ? (order[gB.Giudizio] ?? 4) : (b.missing ? 5 : 4);
-                  return oA - oB;
-                })
-                .map((r) => {
+              sorted.map((r) => {
                   const g = advancedGiudizi?.[r.nome];
                   const giudizio = g && g !== false ? (g.Giudizio || null) : null;
                   const colors = giudizio ? (GIUDIZIO_COLORS[giudizio] || GIUDIZIO_DEFAULT) : null;
-                  const rowBg = colors ? `${colors.bg}66` : 'transparent'; // very light tint
+                  const rowBg = colors ? `${colors.bg}66` : 'transparent';
+                  // Dot: verde = in soglia, rosso = fuori soglia, grigio = mancante
+                  const fuoriStr = String(r.fuori).toLowerCase();
+                  const isFuori = fuoriStr.startsWith("sì") || fuoriStr === "si";
+                  const dotColor = r.missing ? '#cbd5e1' : (isFuori ? '#ef4444' : '#22c55e');
+                  const dotTitle = r.missing ? 'Dato mancante' : (isFuori ? 'Fuori soglia' : 'In soglia');
                   return (
                 <tr key={r.id} className="transition-colors duration-150 group" style={{ backgroundColor: rowBg }}>
-                  <td className={`px-6 py-4 font-medium ${r.missing ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>{r.nome}</td>
+                  <td className={`px-6 py-4 font-medium ${r.missing ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: dotColor }} title={dotTitle}></span>
+                      {r.nome}
+                    </span>
+                  </td>
                   <td className="px-6 py-4">
                     {!r.missing ? (
                       <span className="font-semibold text-slate-800 text-base">
@@ -509,15 +555,6 @@ const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, i
                     ) : (
                       <span className="text-xs text-slate-400">—</span>
                     )}
-                  </td>
-                  <td className="px-6 py-4">
-                    {r.missing ? (
-                      <span className="text-xs text-slate-400">—</span>
-                    ) : (() => {
-                      const f = String(r.fuori).toLowerCase();
-                      const isFuori = f.startsWith("sì") || f === "si";
-                      return <span className={`text-xs font-medium ${isFuori ? 'text-rose-500' : 'text-slate-400'}`}>{isFuori ? 'Sì' : 'No'}</span>;
-                    })()}
                   </td>
                 </tr>
                   );
