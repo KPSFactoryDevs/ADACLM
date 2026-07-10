@@ -61,16 +61,25 @@ async function postMissingVoices(documentId, voci) {
 }
 
 /* ======================= Scale / utils UI ======================= */
-// Scala allineata a quella del backend (AllertaHelper::getScores)
-// Backend scala 0-1 → frontend scala 0-100 (stesse soglie x100)
+// Scala per sezione Basic+Questionari (hero gauge)
 const SCALE = [
-  { label: "Solidità",          min: 85, color: "#16a34a" }, // emerald-600
-  { label: "Fragilità",         min: 70, color: "#22c55e" }, // green-500
-  { label: "Fragilità elevata", min: 56, color: "#f59e0b" }, // amber-500
-  { label: "Rischio alert",     min: 42, color: "#f97316" }, // orange-500
-  { label: "Alert",             min: 28, color: "#fb923c" }, // orange-400
-  { label: "Situazione Grave",  min: 14, color: "#ef4444" }, // red-500
-  { label: "Default",           min: 0,  color: "#dc2626" }, // red-600
+  { label: "Solido",        min: 90, color: "#16a34a" }, // emerald-600
+  { label: "Molto buono",   min: 80, color: "#22c55e" }, // green-500
+  { label: "Buono",         min: 70, color: "#4ade80" }, // green-400
+  { label: "Neutro",        min: 60, color: "#a3a3a3" }, // neutral-400
+  { label: "Debole",        min: 50, color: "#f59e0b" }, // amber-500
+  { label: "Molto debole",  min: 40, color: "#f97316" }, // orange-500
+  { label: "Fragile",       min: 0,  color: "#ef4444" }, // red-500
+];
+// Scala per score Advanced (stessa dell'allerta/dashboard)
+const SCALE_ADV = [
+  { label: "Solidità",          min: 85, color: "#16a34a" },
+  { label: "Fragilità",         min: 70, color: "#22c55e" },
+  { label: "Fragilità elevata", min: 56, color: "#f59e0b" },
+  { label: "Rischio alert",     min: 42, color: "#f97316" },
+  { label: "Alert",             min: 28, color: "#fb923c" },
+  { label: "Situazione Grave",  min: 14, color: "#ef4444" },
+  { label: "Default",           min: 0,  color: "#dc2626" },
 ];
 const ALERT_LINKS = [
   { id:"ade",    label:"Agenzia delle Entrate" },
@@ -88,16 +97,19 @@ const Q_MAP = {
   forn: "Debiti verso Fornitori",
 };
 
-/* ---------- Scoring Engine Bilancio ----------
- * Pesi:
- *   Indici Basic  (CNDC)        → max 45 pt
- *   Indici Advanced              → max 25 pt
- *   Questionari Allerta          → max 20 pt
- *   Completezza dati             → max 10 pt
+/* ---------- Scoring Engine Bilancio (solo Basic + Questionari) ----------
+ * Questo score riguarda SOLO indici Basic e Questionari.
+ * Lo score degli Indici Avanzati è calcolato dal backend (valutazioneIndici)
+ * e mostrato separatamente nella sezione dedicata.
+ *
+ * Pesi (riscalati a 100):
+ *   Indici Basic  (CNDC)        → max 60 pt
+ *   Questionari Allerta          → max 27 pt
+ *   Completezza (basic+Q)        → max 13 pt
  * Totale                         → max 100 pt
  */
-function computeBilancioScore(indiciBasic, indiciAdvanced, alertStatusMap) {
-  // ── 1) Indici Basic (45 pt) ──
+function computeBilancioScore(indiciBasic, alertStatusMap) {
+  // ── 1) Indici Basic (60 pt) ──
   const basicItems = indiciBasic.length > 0 ? indiciBasic.slice(0, -1) : [];
   const basicSummary = indiciBasic.length > 0 ? indiciBasic.at(-1) : null;
 
@@ -125,22 +137,10 @@ function computeBilancioScore(indiciBasic, indiciAdvanced, alertStatusMap) {
 
   const basicTotal = basicEvaluable + summaryWeight;
   const basicScore = basicTotal > 0
-    ? ((basicOk + summaryOk) / basicTotal) * 45
+    ? ((basicOk + summaryOk) / basicTotal) * 60
     : 0;
 
-  // ── 2) Indici Advanced (25 pt) ──
-  let advEvaluable = 0, advOk = 0;
-  for (const r of indiciAdvanced) {
-    if (r.missing || r.fuori === "N/A") continue;
-    advEvaluable++;
-    const f = String(r.fuori).toLowerCase();
-    if (f === "no") advOk++;
-  }
-  const advScore = advEvaluable > 0
-    ? (advOk / advEvaluable) * 25
-    : 0;
-
-  // ── 3) Questionari Allerta (20 pt) ──
+  // ── 2) Questionari Allerta (27 pt) ──
   const qIds = ["ade", "inps", "risc", "retrib", "forn"];
   let qPoints = 0;
   let qEvaluable = 0;
@@ -148,24 +148,25 @@ function computeBilancioScore(indiciBasic, indiciAdvanced, alertStatusMap) {
     const status = alertStatusMap?.[qid];
     if (!status || status === "missing") continue;
     qEvaluable++;
-    if (status === "ok") qPoints += 4;
+    if (status === "ok") qPoints += 5.4; // 27/5 = 5.4 per questionario ok
   }
-  const qScore = qPoints; // max 20
+  const qScore = Math.min(27, qPoints);
 
-  // ── 4) Completezza dati (10 pt) ──
-  const totalIndices = basicItems.length + indiciAdvanced.length;
-  const totalMissing = basicItems.filter(r => r.missing).length + indiciAdvanced.filter(r => r.missing).length;
-  const totalCompiled = totalIndices - totalMissing;
-  const dataCompleteness = totalIndices > 0 ? (totalCompiled / totalIndices) : 0;
+  // ── 3) Completezza dati basic+questionari (13 pt) ──
+  const totalBasic = basicItems.length;
+  const totalMissing = basicItems.filter(r => r.missing).length;
+  const totalCompiled = totalBasic - totalMissing;
+  const dataCompleteness = totalBasic > 0 ? (totalCompiled / totalBasic) : 0;
   const qCompleteness = qIds.length > 0 ? (qEvaluable / qIds.length) : 0;
-  const completenessScore = (dataCompleteness * 6) + (qCompleteness * 4); // max 10
+  const completenessScore = (dataCompleteness * 8) + (qCompleteness * 5); // max 13
 
   // ── Totale ──
-  const raw = basicScore + advScore + qScore + completenessScore;
+  const raw = basicScore + qScore + completenessScore;
   return Math.max(0, Math.min(100, Math.round(raw)));
 }
 
 const classify = (score)=> SCALE.find(s=>score>=s.min) || SCALE.at(-1);
+const classifyAdv = (label) => SCALE_ADV.find(s => s.label === label) || SCALE_ADV.at(-1);
 const fmtPerc = (v) => v==null ? "N/A" : (v).toLocaleString("it-IT",{maximumFractionDigits:2}) + "%";
 const load = (k, def) => { try { const r = localStorage.getItem(k); return r?JSON.parse(r):def; } catch { return def; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
@@ -379,14 +380,27 @@ const AlertTable = React.memo(function AlertTable({ loading, alertStatus, qFlags
 });
 
 /** Indici Avanzati Table — React.memo */
-const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, indiciAdvanced, indexStatus, openVoci, countMissingVoci }) {
+const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, indiciAdvanced, indexStatus, openVoci, countMissingVoci, advancedGiudizio }) {
+  const advRating = classifyAdv(advancedGiudizio);
   return (
     <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm">
-      <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent">
+      <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent flex items-center justify-between">
         <h2 className="font-bold text-slate-800 flex items-center gap-2">
           <div className="w-1.5 h-4 bg-teal-500 rounded-full"></div>
           Indici Avanzati (Analisi Supplementare)
-        </h2> 
+        </h2>
+        {!loading && advancedGiudizio && (
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Valutazione Bilancio</span>
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold text-white shadow-sm"
+              style={{ backgroundColor: advRating.color }}
+            >
+              <span className="w-2 h-2 rounded-full bg-white/30"></span>
+              {advRating.label}
+            </span>
+          </div>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -457,9 +471,10 @@ export default function AnalisiBilancioDettaglio() {
   const [toast, setToast] = useState(null); 
   const [nomeAzienda, setNomeAzienda] = useState(null);
 
-  // score UI – calcolato dinamicamente da indici e questionari
+  // score UI – calcolato dinamicamente da indici basic e questionari
   const [score, setScore] = useState(null);
-  const [backendScoreOverride, setBackendScoreOverride] = useState(null);
+  // score Advanced dal backend (stessa logica dell'allerta/dashboard)
+  const [advancedGiudizio, setAdvancedGiudizio] = useState(null);
   const rating = classify(score ?? 0);
 
   // indici UI (persist per documento)
@@ -505,16 +520,9 @@ export default function AnalisiBilancioDettaglio() {
     setRecap(payload);
     setNomeAzienda(payload?.nome_azienda ?? null);
 
-    // Se il backend manda uno score esplicito (scala 0-1), lo convertiamo in 0-100
-    const maybeScore = payload?.bilancioAnalisi?.Score ?? payload?.bilancioAnalisi?.score ?? null;
-    if (maybeScore != null) {
-      const s = parseNum(maybeScore);
-      if (s != null) {
-        // Il backend restituisce lo score su scala 0-1, lo convertiamo a 0-100
-        const score100 = s <= 1 ? s * 100 : s;
-        setBackendScoreOverride(Math.max(0, Math.min(100, Math.round(score100))));
-      }
-    }
+    // Leggi lo score Advanced dal backend (stessa logica dell'allerta)
+    const advGiudizio = payload?.bilancioAnalisi?.AdvancedGiudizio ?? null;
+    if (advGiudizio) setAdvancedGiudizio(advGiudizio);
 
     const missingMap = {};
     const missSrc = payload?.bilancioAnalisi?.indiceVociMancanti || {};
@@ -642,16 +650,12 @@ export default function AnalisiBilancioDettaglio() {
     return { incomplete: issues.length > 0, issues };
   }, [indici, indiciAdvanced, alertStatus]);
 
-  // ── Ricalcola lo score ogni volta che cambiano i dati ──
+  // ── Ricalcola lo score Basic+Questionari ogni volta che cambiano i dati ──
   useEffect(() => {
-    if (backendScoreOverride != null) {
-      setScore(backendScoreOverride);
-      return;
-    }
-    if (indici.length === 0 && indiciAdvanced.length === 0) return;
-    const computed = computeBilancioScore(indici, indiciAdvanced, alertStatus);
+    if (indici.length === 0) return;
+    const computed = computeBilancioScore(indici, alertStatus);
     setScore(computed);
-  }, [indici, indiciAdvanced, alertStatus, backendScoreOverride]);
+  }, [indici, alertStatus]);
 
   const saveQuestionari = async () => {
     try {
@@ -956,6 +960,7 @@ export default function AnalisiBilancioDettaglio() {
           indexStatus={indexStatus}
           openVoci={openVoci}
           countMissingVoci={countMissingVoci}
+          advancedGiudizio={advancedGiudizio}
         />
       </div>
 
