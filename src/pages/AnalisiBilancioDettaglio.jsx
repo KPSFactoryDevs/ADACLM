@@ -999,19 +999,23 @@ export default function AnalisiBilancioDettaglio() {
                 <div className="mt-3"><SkLine w={90} h={12} className="mx-auto" /></div>
               </>
             ) : (
-              <div className="relative">
+              <div className="relative group">
                 <div
                   className="absolute inset-0 rounded-full blur-xl opacity-20 transition-colors duration-700"
                   style={{ backgroundColor: advRating.color }}
                 />
-                {/* Cerchio tratteggiato quando dati incompleti */}
+                {/* SVG cerchio tratteggiato quando dati incompleti */}
                 {missingCount > 0 && (
-                  <div className="absolute -inset-2 rounded-full" style={{ border: '3px dashed #f59e0b' }} />
+                  <svg className="absolute -inset-3 w-[calc(100%+24px)] h-[calc(100%+24px)] animate-[spin_30s_linear_infinite]" viewBox="0 0 176 176">
+                    <circle cx="88" cy="88" r="84" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeDasharray="8 6" strokeLinecap="round" opacity="0.7" />
+                  </svg>
                 )}
                 <Gauge value={advancedScore ?? 0} color={advRating.color} size={150} stroke={14} label="Score" subtitle="su 100" />
+                {/* Tooltip on hover */}
                 {missingCount > 0 && (
-                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-bold text-amber-500 bg-white px-2 rounded-full border border-amber-200 whitespace-nowrap shadow-sm">
-                    Dati incompleti
+                  <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -bottom-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20 whitespace-nowrap bg-slate-800 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg">
+                    Score parziale — {missingCount} {missingCount === 1 ? 'indice non calcolato' : 'indici non calcolati'}
+                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
                   </div>
                 )}
               </div>
