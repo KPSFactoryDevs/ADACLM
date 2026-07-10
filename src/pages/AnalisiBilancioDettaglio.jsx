@@ -475,12 +475,12 @@ const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, i
           </div>
         </div>
         <div className="flex-1 w-full flex flex-col justify-center">
-          <div className="text-sm text-teal-600 font-semibold uppercase tracking-widest">Valutazione Bilancio</div>
+          <div className="text-sm text-teal-600 font-semibold uppercase tracking-widest">Valutazione Complessiva</div>
           <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">
-            {loading ? <SkLine w={220} h={28} /> : "Indici Avanzati"}
+            {loading ? <SkLine w={220} h={28} /> : "Scoring Bilancio"}
           </h2>
           <div className="mt-2 text-sm text-slate-500 max-w-xl leading-relaxed">
-            {loading ? <SkLine w={300} /> : "Punteggio calcolato sugli indici avanzati di bilancio."}
+            {loading ? <SkLine w={300} /> : "Indici primari, indici avanzati, questionari allerta e completezza dati."}
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-4">
             <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">{loading ? <SkLine w={60} /> : "Giudizio"}</span>
