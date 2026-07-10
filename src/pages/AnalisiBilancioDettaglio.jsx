@@ -526,7 +526,10 @@ const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, i
                   <td className="px-6 py-4">
                     {!r.missing ? (
                       <span className="font-semibold text-slate-800 text-base">
-                        {r.fmt === "%" ? fmtPerc(r.valore) : (r.fmt ? `${r.valore}${r.fmt}` : (r.note || "—"))}
+                        {r.valore != null
+                          ? `${r.valore.toLocaleString("it-IT", { maximumFractionDigits: 2 })}${r.fmt === "x" ? "x" : r.fmt === "%" ? "%" : ""}`
+                          : (r.note || "—")
+                        }
                       </span>
                     ) : (
                       <div className="flex flex-col gap-2">
