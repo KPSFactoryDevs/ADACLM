@@ -571,9 +571,10 @@ export default function AnalisiBilancioDettaglio() {
   const [cndcecResult, setCndcecResult] = useState(null); // 'ok' | 'bad' | 'missing' | null
   const [cndcecNote, setCndcecNote] = useState(null);
   // score Advanced dal backend (stessa logica dell'allerta/dashboard)
-  const [advancedGiudizio, setAdvancedGiudizio] = useState(null);
+   const [advancedGiudizio, setAdvancedGiudizio] = useState(null);
   const [advancedScore, setAdvancedScore] = useState(null);
   const [advancedGiudizi, setAdvancedGiudizi] = useState(null);
+  const advRating = classifyAdv(advancedGiudizio);
 
   // indici UI (persist per documento)
   const [indici, setIndici] = useState(()=> load(keyFor("indici", initialDocId), []));
