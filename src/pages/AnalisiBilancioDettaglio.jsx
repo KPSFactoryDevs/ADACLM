@@ -1024,7 +1024,7 @@ export default function AnalisiBilancioDettaglio() {
             {loading ? <SkLine w={280} h={32} /> : "Valutazione Complessiva"}
           </h1>
           <div className="mt-2 text-sm text-slate-500 max-w-xl leading-relaxed">
-            {loading ? <SkLine w={340} /> : "Score totale calcolato su indici primari (45%), indici avanzati (25%), questionari allerta (20%) e completezza dati (10%)."}
+            {loading ? <SkLine w={340} /> : "Score totale calcolato su indici primari, indici avanzati, questionari allerta e completezza dati."}
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-4">
             <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">{loading ? <SkLine w={60} /> : "Giudizio"}</span>
