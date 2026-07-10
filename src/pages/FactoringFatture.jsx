@@ -10,6 +10,9 @@ const fmtDate = s => {
   try { return new Date(s).toLocaleDateString("it-IT",{day:"2-digit",month:"short",year:"numeric"}); }
   catch { return s; }
 };
+const isPdf = f => /\.pdf$/i.test(f.name);
+const isXml = f => /\.(xml|p7m)$/i.test(f.name);
+const ACCEPTED_EXT = ['.xml', '.XML', '.p7m', '.pdf', '.PDF'];
 
 /* ===================== GESTIONALI MOCK ===================== */
 const GESTIONALI = [
@@ -54,11 +57,11 @@ export default function FactoringFatture() {
     setDragActive(false);
 
     const droppedFiles = Array.from(e.dataTransfer.files).filter(f =>
-      f.name.endsWith(".xml") || f.name.endsWith(".XML") || f.name.endsWith(".p7m")
+      ACCEPTED_EXT.some(ext => f.name.endsWith(ext))
     );
 
     if (droppedFiles.length === 0) {
-      showToast("error", "Accettiamo solo file XML (fattura elettronica)");
+      showToast("error", "Accettiamo solo file XML o PDF");
       return;
     }
 
@@ -68,7 +71,7 @@ export default function FactoringFatture() {
 
   const handleFileInput = useCallback((e) => {
     const selected = Array.from(e.target.files).filter(f =>
-      f.name.endsWith(".xml") || f.name.endsWith(".XML") || f.name.endsWith(".p7m")
+      ACCEPTED_EXT.some(ext => f.name.endsWith(ext))
     );
     if (selected.length) {
       setFiles(prev => [...prev, ...selected]);
@@ -87,10 +90,28 @@ export default function FactoringFatture() {
     setUploading(true);
     setUploadResult(null);
     try {
-      const result = await Factoring.uploadXml(files);
-      setUploadResult(result);
+      // Separa file per tipo
+      const xmlFiles = files.filter(isXml);
+      const pdfFiles = files.filter(isPdf);
+
+      // Upload parallelo per tipo
+      const promises = [];
+      if (xmlFiles.length > 0) promises.push(Factoring.uploadXml(xmlFiles));
+      if (pdfFiles.length > 0) promises.push(Factoring.uploadPdf(pdfFiles));
+
+      const results = await Promise.all(promises);
+
+      // Merge risultati
+      const merged = results.reduce((acc, r) => ({
+        success:  (acc.success || 0) + (r.success || 0),
+        errors:   (acc.errors || 0) + (r.errors || 0),
+        results:  [...(acc.results || []), ...(r.results || [])],
+        failures: [...(acc.failures || []), ...(r.failures || [])],
+      }), { success: 0, errors: 0, results: [], failures: [] });
+
+      setUploadResult(merged);
       setFiles([]);
-      showToast("success", `${result.success} fattur${result.success !== 1 ? "e" : "a"} importat${result.success !== 1 ? "e" : "a"} con successo`);
+      showToast("success", `${merged.success} fattur${merged.success !== 1 ? "e" : "a"} importat${merged.success !== 1 ? "e" : "a"} con successo`);
     } catch (err) {
       showToast("error", err.message || "Errore durante il caricamento");
     } finally {
@@ -123,10 +144,10 @@ export default function FactoringFatture() {
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold" style={{background:"rgba(255,255,255,0.12)", color:"#bae6fd"}}>
                 <InvoiceIcon/> Caricamento Fatture
               </div>
-              <h1 className="mt-4 text-3xl font-bold text-white tracking-tight">Importa Fatture XML</h1>
+              <h1 className="mt-4 text-3xl font-bold text-white tracking-tight">Importa Fatture</h1>
               <p className="mt-2 text-sky-200 max-w-lg text-sm leading-relaxed">
-                Carica le fatture elettroniche in formato XML per estrarre automaticamente i dati
-                e creare l'anagrafica dei tuoi clienti.
+                Carica le fatture elettroniche in formato XML o PDF per estrarre automaticamente i dati
+                e creare l'anagrafica dei tuoi clienti. I PDF vengono analizzati con AI.
               </p>
             </div>
             <button
@@ -153,8 +174,8 @@ export default function FactoringFatture() {
                 <UploadIcon className="text-white"/>
               </div>
               <div>
-                <div className="font-semibold text-neutral-900">Carica XML</div>
-                <div className="text-xs text-neutral-500">Drag & drop o seleziona file</div>
+                <div className="font-semibold text-neutral-900">Carica Fatture</div>
+                <div className="text-xs text-neutral-500">XML o PDF — Drag & drop o seleziona file</div>
               </div>
             </div>
           </div>
@@ -178,7 +199,7 @@ export default function FactoringFatture() {
                 <input
                   type="file"
                   multiple
-                  accept=".xml,.XML,.p7m"
+                  accept=".xml,.XML,.p7m,.pdf,.PDF"
                   className="hidden"
                   onChange={handleFileInput}
                 />
@@ -192,13 +213,13 @@ export default function FactoringFatture() {
                 </div>
                 <div className="text-center">
                   <div className={`font-medium transition ${dragActive ? "text-sky-700" : "text-neutral-700"}`}>
-                    {dragActive ? "Rilascia i file qui" : "Trascina qui i file XML"}
+                    {dragActive ? "Rilascia i file qui" : "Trascina qui i file XML o PDF"}
                   </div>
                   <div className="text-xs text-neutral-400 mt-1">
                     oppure <span className="text-sky-600 underline">clicca per selezionare</span>
                   </div>
                   <div className="text-xs text-neutral-400 mt-2">
-                    Formati accettati: .xml (FatturaPA), .p7m
+                    Formati accettati: .xml (FatturaPA), .p7m, .pdf
                   </div>
                 </div>
               </label>
@@ -219,9 +240,12 @@ export default function FactoringFatture() {
                 <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">File selezionati ({files.length})</div>
                 {files.map((f, i) => (
                   <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-neutral-50 border border-neutral-200">
-                    <XmlIcon/>
+                    {isPdf(f) ? <PdfIcon/> : <XmlIcon/>}
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-neutral-800 truncate">{f.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-neutral-800 truncate">{f.name}</span>
+                        {isPdf(f) && <AiBadge/>}
+                      </div>
                       <div className="text-xs text-neutral-400">{(f.size/1024).toFixed(1)} KB</div>
                     </div>
                     <button onClick={() => removeFile(i)} className="w-6 h-6 rounded hover:bg-neutral-200 grid place-items-center text-neutral-400 hover:text-red-500 transition">
@@ -312,6 +336,7 @@ export default function FactoringFatture() {
                 <thead className="bg-neutral-50 text-neutral-600">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">File</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Fonte</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Cliente Estratto</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">P.IVA</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Cedente</th>
@@ -323,9 +348,20 @@ export default function FactoringFatture() {
                     <tr key={i} className="hover:bg-neutral-50/50">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <XmlIcon/>
+                          {r.source === 'AI' ? <PdfIcon/> : <XmlIcon/>}
                           <span className="text-neutral-700 font-medium truncate max-w-[180px]">{r.file}</span>
                         </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {r.source === 'AI' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                            <AiSparkle/> AI
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                            XML
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 font-medium text-neutral-900">{r.client}</td>
                       <td className="px-4 py-3 text-neutral-600 font-mono text-xs">{r.client_piva}</td>
@@ -460,4 +496,7 @@ function InvoiceIcon(){return(<svg width="16" height="16" viewBox="0 0 24 24" fi
 function UsersIcon(){return(<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="4" stroke="currentColor" strokeWidth="1.6"/><path d="M2 20a7 7 0 0114 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>);}
 function LinkIcon(){return(<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>);}
 function XmlIcon(){return(<div className="w-7 h-7 rounded-lg bg-sky-50 border border-sky-200 grid place-items-center flex-shrink-0"><span className="text-[10px] font-bold text-sky-600">XML</span></div>);}
+function PdfIcon(){return(<div className="w-7 h-7 rounded-lg bg-red-50 border border-red-200 grid place-items-center flex-shrink-0"><span className="text-[10px] font-bold text-red-500">PDF</span></div>);}
+function AiBadge(){return(<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-violet-100 text-violet-700 border border-violet-200 flex-shrink-0"><AiSparkle/> AI</span>);}
+function AiSparkle(){return(<svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0l1.5 5.5L16 8l-6.5 2.5L8 16l-1.5-5.5L0 8l6.5-2.5z"/></svg>);}
 function Spinner(){return(<div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>);}

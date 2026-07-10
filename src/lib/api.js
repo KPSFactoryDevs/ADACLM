@@ -173,6 +173,17 @@ export const Factoring = {
     return handleResponse(res);
   },
 
+  async uploadPdf(files) {
+    const fd = new FormData();
+    files.forEach((f) => fd.append("files[]", f));
+    const res = await fetch(`${API_BASE}/credito/invoices/upload-pdf`, {
+      method: "POST",
+      headers: { ...authHeaders(), Accept: "application/json" },
+      body: fd,
+    });
+    return handleResponse(res);
+  },
+
   async uploadDocument(clientId, file, type) {
     const fd = new FormData();
     fd.append("file", file);
