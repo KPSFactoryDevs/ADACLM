@@ -1008,19 +1008,22 @@ export default function AnalisiBilancioDettaglio() {
                   className="absolute inset-0 rounded-full blur-xl opacity-20 transition-colors duration-700"
                   style={{ backgroundColor: advRating.color }}
                 />
-                {/* SVG cerchio tratteggiato quando dati incompleti */}
-                {missingCount > 0 && (
-                  <svg className="absolute -inset-1 w-[calc(100%+8px)] h-[calc(100%+8px)] animate-[spin_60s_linear_infinite]" viewBox="0 0 158 158">
-                    <circle cx="79" cy="79" r="77" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="5 4" strokeLinecap="round" opacity="0.55" />
-                  </svg>
-                )}
                 <Gauge value={advancedScore ?? 0} color={advRating.color} size={150} stroke={14} label="Score" subtitle="su 100" />
-                {/* Tooltip on hover */}
+                {/* Indicatore dati incompleti */}
                 {missingCount > 0 && (
-                  <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -bottom-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20 whitespace-nowrap bg-slate-800 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg">
-                    Score parziale — {missingCount} {missingCount === 1 ? 'indice non calcolato' : 'indici non calcolati'}
-                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
-                  </div>
+                  <>
+                    <div className="mt-2 flex items-center justify-center gap-1.5 text-amber-600 cursor-default">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" strokeDasharray="4 3" />
+                        <path d="M12 8v4"/><path d="M12 16h.01"/>
+                      </svg>
+                      <span className="text-[11px] font-semibold">Dati parziali</span>
+                    </div>
+                    <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -bottom-12 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20 whitespace-nowrap bg-slate-800 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg">
+                      {missingCount} {missingCount === 1 ? 'indice non calcolato' : 'indici non calcolati'}
+                      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+                    </div>
+                  </>
                 )}
               </div>
             )}
