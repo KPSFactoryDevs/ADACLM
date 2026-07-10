@@ -1176,36 +1176,53 @@ export default function AnalisiBilancioDettaglio() {
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
                     <tr>
                       <th className="px-4 py-3 text-left">Descrizione Voce</th>
-                      <th className="px-4 py-3 text-left w-1/3">Importo (€)</th>
+                      <th className="px-4 py-3 text-left w-1/4">Anno Corrente (€)</th>
+                      <th className="px-4 py-3 text-left w-1/4">Anno Precedente (€)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {modalVoci.voci.length === 0 ? (
                       <tr><td colSpan={3} className="px-4 py-10 text-center font-medium text-slate-500">Nessuna voce richiesta trovata.</td></tr>
-                    ) : modalVoci.voci.map(k=>(
-                      <tr key={k} className="hover:bg-slate-50/50 transition-colors duration-150">
-                        {(() => {
-                          const { base, idx } = splitCombinedKey(k);
-                          const periodLabel = idx === "1" ? "Anno Corrente" : idx === "2" ? "Anno Precedente" : "";
-
-                          return (
-                            <td className="px-4 py-3 font-medium text-slate-800">
-                              {labelsMap[base] || camelToLabel(base)}
-                              {periodLabel && <span className="ml-2 px-1.5 py-0.5 rounded bg-amber-100 text-xs font-semibold text-amber-800">{periodLabel}</span>}
-                            </td>
-                          );
-                        })()}
-
-                        <td className="px-4 py-3">
-                          <input
-                            className="w-full h-9 border border-slate-200 rounded-lg px-3 py-1.5 focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition-all duration-150 shadow-inner font-semibold text-slate-700 bg-slate-50 focus:bg-white"
-                            placeholder="0,00"
-                            onChange={e=>handleVociChange(k, e.target.value)}
-                            inputMode="decimal"
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    ) : (() => {
+                      // Raggruppa voci per nome base
+                      const grouped = {};
+                      modalVoci.voci.forEach(k => {
+                        const { base, idx } = splitCombinedKey(k);
+                        if (!grouped[base]) grouped[base] = {};
+                        grouped[base][idx] = k; // k = "NomeVoce_1" o "NomeVoce_2"
+                      });
+                      return Object.entries(grouped).map(([base, periods]) => (
+                        <tr key={base} className="hover:bg-slate-50/50 transition-colors duration-150">
+                          <td className="px-4 py-3 font-medium text-slate-800">
+                            {labelsMap[base] || camelToLabel(base)}
+                          </td>
+                          <td className="px-4 py-3">
+                            {periods["1"] ? (
+                              <input
+                                className="w-full h-9 border border-slate-200 rounded-lg px-3 py-1.5 focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition-all duration-150 shadow-inner font-semibold text-slate-700 bg-slate-50 focus:bg-white"
+                                placeholder="0,00"
+                                onChange={e => handleVociChange(periods["1"], e.target.value)}
+                                inputMode="decimal"
+                              />
+                            ) : (
+                              <span className="text-slate-300 text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {periods["2"] ? (
+                              <input
+                                className="w-full h-9 border border-slate-200 rounded-lg px-3 py-1.5 focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)] outline-none transition-all duration-150 shadow-inner font-semibold text-slate-700 bg-slate-50 focus:bg-white"
+                                placeholder="0,00"
+                                onChange={e => handleVociChange(periods["2"], e.target.value)}
+                                inputMode="decimal"
+                              />
+                            ) : (
+                              <span className="text-slate-300 text-xs">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>
