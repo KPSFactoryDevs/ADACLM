@@ -584,13 +584,13 @@ export default function AnalisiBilancioDettaglio() {
   const [toast, setToast] = useState(null); 
   const [nomeAzienda, setNomeAzienda] = useState(null);
 
-  // score UI – calcolato dinamicamente da indici basic e questionari
-  const [score, setScore] = useState(null);
+  // CNDCEC result (boolean: ok = Non a Rischio, bad = A Rischio)
+  const [cndcecResult, setCndcecResult] = useState(null); // 'ok' | 'bad' | 'missing' | null
+  const [cndcecNote, setCndcecNote] = useState(null);
   // score Advanced dal backend (stessa logica dell'allerta/dashboard)
   const [advancedGiudizio, setAdvancedGiudizio] = useState(null);
   const [advancedScore, setAdvancedScore] = useState(null);
   const [advancedGiudizi, setAdvancedGiudizi] = useState(null);
-  const rating = classify(score ?? 0);
 
   // indici UI (persist per documento)
   const [indici, setIndici] = useState(()=> load(keyFor("indici", initialDocId), []));
@@ -692,6 +692,25 @@ export default function AnalisiBilancioDettaglio() {
     };
 
     const arr = buildIndices(payload?.bilancioAnalisi?.Indici?.Basic);
+    // Estrai l'ultimo indice (CNDCEC) e rimuovilo dalla tabella
+    if (arr.length > 0) {
+      const lastItem = arr[arr.length - 1];
+      const noteStr = String(lastItem.note ?? '').toLowerCase();
+      if (noteStr.includes('non a rischio') || noteStr.includes('non rischio')) {
+        setCndcecResult('ok');
+        setCndcecNote(lastItem.note);
+      } else if (noteStr.includes('rischio')) {
+        setCndcecResult('bad');
+        setCndcecNote(lastItem.note);
+      } else if (lastItem.missing) {
+        setCndcecResult('missing');
+        setCndcecNote(null);
+      } else {
+        setCndcecResult(lastItem.fuori === 'No' ? 'ok' : 'bad');
+        setCndcecNote(lastItem.note);
+      }
+      arr.pop(); // rimuovi CNDCEC dalla tabella
+    }
     setIndici(arr);
     save(keyFor("indici", docId), arr);
 
@@ -792,12 +811,7 @@ export default function AnalisiBilancioDettaglio() {
     return { incomplete: issues.length > 0, issues };
   }, [indici, indiciAdvanced, alertStatus]);
 
-  // ── Ricalcola lo score Basic+Questionari ogni volta che cambiano i dati ──
-  useEffect(() => {
-    if (indici.length === 0) return;
-    const computed = computeBilancioScore(indici, alertStatus);
-    setScore(computed);
-  }, [indici, alertStatus]);
+
 
   const saveQuestionari = async () => {
     try {
@@ -950,72 +964,45 @@ export default function AnalisiBilancioDettaglio() {
       {/* HERO SECTION */}
       <section className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col xl:flex-row items-center xl:items-stretch gap-6">
         <div className="shrink-0 flex items-center justify-center pt-2 xl:pt-0 xl:pr-6 xl:border-r border-slate-100">
-          <div className="text-center group">
+          <div className="text-center">
             {loading ? (
               <>
                 <SkCircle size={140} />
                 <div className="mt-3"><SkLine w={90} h={12} className="mx-auto" /></div>
               </>
             ) : (
-              <div className="relative">
-                {/* Anello arancione esterno quando dati incompleti */}
-                {incompleteness.incomplete && (
-                  <svg
-                    width={174} height={174}
-                    viewBox="0 0 174 174"
-                    className="absolute -top-[12px] -left-[12px] pointer-events-none"
-                    style={{ zIndex: 1 }}
-                  >
-                    <circle
-                      cx={87} cy={87} r={83}
-                      stroke="#f59e0b" strokeWidth={3} fill="none"
-                      strokeDasharray="8 6" opacity={0.7}
-                      className="animate-[spin_18s_linear_infinite]"
-                      style={{ transformOrigin: '87px 87px' }}
-                    />
-                  </svg>
-                )}
-                {/* Glow effect behind the gauge */}
+              <div className="relative flex flex-col items-center">
                 <div
                   className="absolute inset-0 rounded-full blur-xl opacity-20 transition-colors duration-700"
-                  style={{ backgroundColor: rating.color }}
+                  style={{ backgroundColor: cndcecResult === 'ok' ? '#16a34a' : cndcecResult === 'bad' ? '#ef4444' : '#a3a3a3', width: 120, height: 120, margin: 'auto' }}
                 />
-                <Gauge value={score ?? 0} color={rating.color} size={150} stroke={14} label="Scoring" subtitle="su 100" />
-                {/* Badge warning con tooltip */}
-                {incompleteness.incomplete && (
-                  <div className="absolute -top-1 -right-1 z-10 group/warn">
-                    <div className="w-7 h-7 rounded-full bg-amber-400 border-2 border-white shadow-md flex items-center justify-center cursor-help transition-transform duration-200 hover:scale-110">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 9v4" />
-                        <path d="M12 17h.01" />
-                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                      </svg>
-                    </div>
-                    {/* Tooltip */}
-                    <div className="invisible group-hover/warn:visible opacity-0 group-hover/warn:opacity-100 transition-all duration-200 absolute top-full right-0 mt-2 w-64 bg-slate-900 text-white text-xs rounded-xl p-3 shadow-xl z-50">
-                      <div className="font-bold text-amber-300 mb-1.5 flex items-center gap-1.5">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 9v4" /><path d="M12 17h.01" />
-                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                        </svg>
-                        Punteggio parziale
-                      </div>
-                      <div className="text-slate-300 leading-relaxed">
-                        Lo score potrebbe non riflettere la situazione reale. Completa i dati mancanti per un giudizio preciso:
-                      </div>
-                      <ul className="mt-2 space-y-1">
-                        {incompleteness.issues.map((issue, i) => (
-                          <li key={i} className="flex items-start gap-1.5">
-                            <span className="text-amber-400 mt-0.5">•</span>
-                            <span>{issue}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      {/* Freccia tooltip */}
-                      <div className="absolute -top-1 right-4 w-2 h-2 bg-slate-900 rotate-45" />
-                    </div>
-                  </div>
-                )}
+                <div
+                  className="w-[120px] h-[120px] rounded-full flex items-center justify-center shadow-lg border-4 transition-all duration-500"
+                  style={{
+                    backgroundColor: cndcecResult === 'ok' ? '#dcfce7' : cndcecResult === 'bad' ? '#fef2f2' : '#f8fafc',
+                    borderColor: cndcecResult === 'ok' ? '#22c55e' : cndcecResult === 'bad' ? '#ef4444' : '#cbd5e1',
+                  }}
+                >
+                  {cndcecResult === 'ok' ? (
+                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                      <path d="M9 12l2 2 4-4"/>
+                    </svg>
+                  ) : cndcecResult === 'bad' ? (
+                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                      <path d="M12 9v4"/><path d="M12 17h.01"/>
+                    </svg>
+                  ) : (
+                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M12 8v4"/><path d="M12 16h.01"/>
+                    </svg>
+                  )}
+                </div>
+                <div className="mt-3 text-xs font-bold uppercase tracking-widest" style={{ color: cndcecResult === 'ok' ? '#16a34a' : cndcecResult === 'bad' ? '#ef4444' : '#94a3b8' }}>
+                  Indice CNDCEC
+                </div>
               </div>
             )}
           </div>
@@ -1029,14 +1016,18 @@ export default function AnalisiBilancioDettaglio() {
                 {loading ? <SkLine w={280} h={32} /> : <>Panoramica di Azienda Censurata</>}
               </h1>
               <div className="mt-2 text-sm text-slate-500 max-w-xl leading-relaxed">
-                {loading ? <SkLine w={340} /> : "Punteggio calcolato in tempo reale sulle grandezze contabili estratte, integrato con gli indicatori del Consiglio Nazionale dei Dottori Commercialisti (CNDC\\EC)."}
+                {loading ? <SkLine w={340} /> : "Valutazione secondo gli indicatori del Consiglio Nazionale dei Dottori Commercialisti ed Esperti Contabili (CNDCEC)."}
               </div>
               <div className="mt-5 flex flex-wrap items-center gap-4">
-                <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">{loading ? <SkLine w={60} /> : "Giudizio finale"}</span>
+                <span className="text-sm font-semibold text-slate-400 uppercase tracking-widest">{loading ? <SkLine w={60} /> : "Esito"}</span>
                 {loading ? (
-                  <SkBadge w={130} />
+                  <SkBadge w={200} />
                 ) : (
-                  <Pill text={rating.label} color={rating.color} className="text-base px-5 py-1.5" />
+                  <Pill
+                    text={cndcecResult === 'ok' ? 'Azienda NON a Rischio' : cndcecResult === 'bad' ? 'Azienda a Rischio' : 'Dati insufficienti'}
+                    color={cndcecResult === 'ok' ? '#16a34a' : cndcecResult === 'bad' ? '#ef4444' : '#94a3b8'}
+                    className="text-base px-5 py-1.5"
+                  />
                 )}
               </div>
             </div>
