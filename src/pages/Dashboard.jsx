@@ -38,13 +38,13 @@ const CONTI = [1450.45, 218.96, 0.05, 300.0];
 
 function resultColor(result) {
   const s = (result || "").toLowerCase();
-  if (s === "default") return "#991b1b";        // darkest red
-  if (s.includes("situazione grave")) return "#ef4444"; // red-500
-  if (s.includes("rischio")) return "#f59e0b";  // amber-500 (Rischio alert)
-  if (s === "alert") return "#f97316";           // orange-500
-  if (s.includes("fragilità elevata") || s.includes("elevat")) return "#eab308"; // yellow-500
-  if (s.includes("fragilit") || s.includes("fragil")) return "#a3a3a3"; // neutral
-  if (s.includes("solidit") || s.includes("solid")) return "#16a34a"; // emerald-600
+  if (s === "default") return "#991b1b";        // rosso molto scuro
+  if (s.includes("situazione grave")) return "#dc2626"; // rosso scuro
+  if (s === "alert") return "#ef4444";           // rosso
+  if (s.includes("rischio")) return "#f97316";  // arancione (Rischio alert)
+  if (s.includes("fragilità elevata") || s.includes("elevat")) return "#f59e0b"; // ambra
+  if (s.includes("fragilit") || s.includes("fragil")) return "#eab308"; // giallo
+  if (s.includes("solidit") || s.includes("solid")) return "#16a34a"; // verde
   if (s.includes("miglior")) return "#16a34a";
   if (s.includes("stabilit")) return "#a3a3a3";
   if (s.includes("peggiora")) return "#ef4444";
@@ -93,11 +93,11 @@ const IconCircle = ({ children }) => (
 /* ── Scala orizzontale Allerta ── */
 const ALLERTA_SCALE = [
   { label: "Default",            color: "#991b1b", keywords: ["default"] },
-  { label: "Situazione Grave",   color: "#ef4444", keywords: ["situazione grave"] },
-  { label: "Alert",              color: "#f97316", keywords: ["alert"] },
-  { label: "Rischio alert",      color: "#f59e0b", keywords: ["rischio alert", "rischio"] },
-  { label: "Fragilità elevata",  color: "#eab308", keywords: ["fragilità elevata", "elevat"] },
-  { label: "Fragilità",          color: "#a3a3a3", keywords: ["fragilit", "fragil"] },
+  { label: "Situazione Grave",   color: "#dc2626", keywords: ["situazione grave"] },
+  { label: "Alert",              color: "#ef4444", keywords: ["alert"] },
+  { label: "Rischio alert",      color: "#f97316", keywords: ["rischio alert", "rischio"] },
+  { label: "Fragilità elevata",  color: "#f59e0b", keywords: ["fragilità elevata", "elevat"] },
+  { label: "Fragilità",          color: "#eab308", keywords: ["fragilit", "fragil"] },
   { label: "Solidità",           color: "#16a34a", keywords: ["solidit", "solid"] },
 ];
 
@@ -316,11 +316,11 @@ export default function Dashboard() {
   function getScoreColor(w) {
     const s = w.toLowerCase();
     if (s === "default") return "#991b1b";
-    if (s.includes("situazione grave")) return "#ef4444";
-    if (s === "alert") return "#f97316";
-    if (s.includes("rischio")) return "#f59e0b";
-    if (s.includes("fragilità elevata")) return "#eab308";
-    if (s.includes("fragilit")) return "#a3a3a3";
+    if (s.includes("situazione grave")) return "#dc2626";
+    if (s === "alert") return "#ef4444";
+    if (s.includes("rischio")) return "#f97316";
+    if (s.includes("fragilità elevata")) return "#f59e0b";
+    if (s.includes("fragilit")) return "#eab308";
     if (s.includes("solidit")) return "#16a34a";
     return "#64748b";
   }

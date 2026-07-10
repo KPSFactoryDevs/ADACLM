@@ -73,13 +73,13 @@ const SCALE = [
 ];
 // Scala per score Advanced (stessa dell'allerta/dashboard)
 const SCALE_ADV = [
-  { label: "Solidità",          min: 85, color: "#16a34a" },
-  { label: "Fragilità",         min: 70, color: "#22c55e" },
-  { label: "Fragilità elevata", min: 56, color: "#f59e0b" },
-  { label: "Rischio alert",     min: 42, color: "#f97316" },
-  { label: "Alert",             min: 28, color: "#fb923c" },
-  { label: "Situazione Grave",  min: 14, color: "#ef4444" },
-  { label: "Default",           min: 0,  color: "#dc2626" },
+  { label: "Solidità",          min: 85, color: "#16a34a" }, // verde scuro — ottimo
+  { label: "Fragilità",         min: 70, color: "#eab308" }, // giallo — attenzione
+  { label: "Fragilità elevata", min: 56, color: "#f59e0b" }, // ambra — rischio moderato
+  { label: "Rischio alert",     min: 42, color: "#f97316" }, // arancione — rischio alto
+  { label: "Alert",             min: 28, color: "#ef4444" }, // rosso — critico
+  { label: "Situazione Grave",  min: 14, color: "#dc2626" }, // rosso scuro — grave
+  { label: "Default",           min: 0,  color: "#991b1b" }, // rosso molto scuro — default/peggiore
 ];
 const ALERT_LINKS = [
   { id:"ade",    label:"Agenzia delle Entrate" },
