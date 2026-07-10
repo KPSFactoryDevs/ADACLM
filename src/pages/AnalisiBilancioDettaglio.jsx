@@ -610,17 +610,37 @@ export default function AnalisiBilancioDettaglio() {
     const missSrc = payload?.bilancioAnalisi?.indiceVociMancanti || {};
     for (const [k,v] of Object.entries(missSrc)) missingMap[normKey(k)] = v;
 
-    const buildIndices = (srcObj) => {
+    // Unità di misura per indici avanzati
+    const ADV_UNITS = {
+      'OF Ricavi': '%', 'Adeguatezza Patrimoniale': '%', 'Liquidità': 'x',
+      'Andamento del fatturato': '%', 'Andamento del MOL': '%',
+      'ROI': '%', 'ROS': '%', 'ROE': '%',
+      'EBITDA Fatturato': '%', 'Andamento dei mezzi propri': '%',
+      'Margine Struttura Primario': '%', 'Margine Struttura Secondario': '%',
+      'Current Ratio': '%', 'Attivita Passivita a Breve': '%',
+      'Acid Test': '%', 'Acid Test Ordinario': '%',
+      'Autonomia Finanziaria': '%', 'Livello investimenti aziendali': '%',
+      'PFN EBITDA': 'x', 'Peso Oneri Finanziari': '%',
+      'Copertura Lorda OF': 'x', 'EBIT OF': 'x',
+      'Costo Del Personale': '%', 'CF Attivo': '%',
+      'Indice di Indebitamento': 'x', 'Saldo dei Debiti verso il Fisco': 'x',
+      // Indici Basic
+      'Sostenibilità Oneri Finanziari': '%', 'Indebitamento Previdenziale Tributario': '%',
+      'Ritorno Liquido Attivo': '%',
+    };
+
+    const buildIndices = (srcObj, isAdvanced = false) => {
       return Object.entries(srcObj || {}).map(([nome, val]) => {
         const id   = nomeToId(nome);
         const norm = normKey(nome);
         const missingVoci = missingMap[norm] || null;
+        const unit = isAdvanced ? (ADV_UNITS[nome] || '%') : '%';
 
-        if (val === false) return { id, nome, valore:null, fmt:"%", fuori:"N/A", missing:true, missingVoci };
+        if (val === false) return { id, nome, valore:null, fmt: unit, fuori:"N/A", missing:true, missingVoci };
         if (typeof val === "object" && val !== null) {
           const v  = parseNum(val.value);
           const fs = !!val.fuoriSoglia;
-          return { id, nome, valore:v, fmt:"%", fuori: v==null ? "N/A" : (fs ? "Sì" : "No"), missing: v==null, missingVoci };
+          return { id, nome, valore:v, fmt: unit, fuori: v==null ? "N/A" : (fs ? "Sì" : "No"), missing: v==null, missingVoci };
         }
         if (typeof val === "string") {
           const note = val;
@@ -635,7 +655,7 @@ export default function AnalisiBilancioDettaglio() {
     setIndici(arr);
     save(keyFor("indici", docId), arr);
 
-    const arrAdvanced = buildIndices(payload?.bilancioAnalisi?.Indici?.Advanced);
+    const arrAdvanced = buildIndices(payload?.bilancioAnalisi?.Indici?.Advanced, true);
     setIndiciAdvanced(arrAdvanced);
     save(keyFor("indiciAdvanced", docId), arrAdvanced);
   }, [docId]);
