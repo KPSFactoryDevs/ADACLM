@@ -234,149 +234,171 @@ function FullPageLoader({ show }) {
 
 /* ======================= Memoized Sub-Tables ======================= */
 
-/** Indici Primari (Basic) Table — React.memo prevents re-render unless data changes */
+/** Shield icon component */
+const ShieldIcon = ({ ok, size = 48, missing = false }) => {
+  if (missing) return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      <path d="M12 8v4"/><path d="M12 16h.01"/>
+    </svg>
+  );
+  if (ok) return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="#dcfce7" stroke="#22c55e"/>
+      <path d="M9 12l2 2 4-4" stroke="#16a34a" strokeWidth="2.2"/>
+    </svg>
+  );
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="#fef2f2" stroke="#ef4444"/>
+      <path d="M15 9l-6 6" stroke="#ef4444" strokeWidth="2.2"/>
+      <path d="M9 9l6 6" stroke="#ef4444" strokeWidth="2.2"/>
+    </svg>
+  );
+};
+
+/** Indici Primari — 5 card su una riga */
 const IndiciBasicTable = React.memo(function IndiciBasicTable({ loading, indici, missingCount, indexStatus, openVoci, countMissingVoci }) {
   return (
-    <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm flex flex-col">
-      <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent flex items-center justify-between">
-        <h2 className="font-bold text-slate-800 flex items-center gap-2">
-          <div className="w-1.5 h-4 bg-[var(--brand)] rounded-full"></div>
-          Indici Primari
+    <section>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-bold text-slate-800 flex items-center gap-2 text-lg">
+          <div className="w-1.5 h-5 bg-[var(--brand)] rounded-full"></div>
+          Indici Primari (CNDCEC)
         </h2>
-        <div className="text-xs font-semibold text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
-          Mancanti: <span className="text-rose-600 font-bold ml-1">{missingCount}</span>
-        </div>
+        {missingCount > 0 && (
+          <span className="text-xs font-bold text-white bg-amber-400 px-3 py-1 rounded-full shadow-sm">
+            Mancanti: {missingCount}
+          </span>
+        )}
       </div>
-      <div className="overflow-x-auto flex-1">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-100">
-            <tr>
-              <th className="px-6 py-4 text-left font-semibold">Indice Analizzato</th>
-              <th className="px-6 py-4 text-left font-semibold">Valore</th>
-              <th className="px-6 py-4 text-left font-semibold">Fuori soglia?</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {loading ? (
-              Array.from({length:6}).map((_,i)=>(
-                <tr key={`sk-indici-${i}`}>
-                  <td className="px-6 py-4"><SkLine w="70%" /></td>
-                  <td className="px-6 py-4"><SkLine w="40%" /></td>
-                  <td className="px-6 py-4"><SkBadge w={80} h={24} /></td>
-                </tr>
-              ))
-            ) : (
-              indici.map((r) => {
-                const v = String(r.note ?? '');
-                const kind = v.includes('Azienda NON a Rischio') ? 'ok'
-                            : v.includes('Azienda a Rischio') ? 'bad' : undefined;
-                return (
-                  <tr key={r.id} className="hover:bg-slate-50/80 transition-colors duration-150 group">
-                    <td className={`px-6 py-4 font-medium ${r.missing ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>{r.nome}</td>
-                    <td className="px-6 py-4">
-                      {!r.missing ? (
-                        <span className="font-semibold text-slate-800 flex items-center min-h-[32px]">
-                            {kind && <span className="mr-2"><StatusIconTwo kind={kind} /></span>}
-                            {r.fmt === "%" ? fmtPerc(r.valore) : (r.fmt ? `${r.valore}${r.fmt}` : (r.note || "—"))}
-                        </span>
-                      ) : (
-                        <div className="flex flex-col gap-2">
-                          <button
-                            onClick={()=>openVoci(r)}
-                            className="inline-flex max-w-[max-content] px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 transition-colors duration-150 shadow-sm"
-                          >
-                            INSERISCI DATI
-                          </button>
-                          {r.missingVoci && (
-                            <span className="text-xs font-medium text-slate-400">
-                              Richiede {countMissingVoci(r.missingVoci)} voci XBRL
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusIcon kind={indexStatus(r)} />
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {loading ? (
+          Array.from({length: 5}).map((_, i) => (
+            <div key={`sk-basic-${i}`} className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm flex flex-col items-center gap-3">
+              <SkCircle size={48} />
+              <SkLine w="70%" h={12} />
+              <SkLine w="40%" h={16} />
+            </div>
+          ))
+        ) : (
+          indici.map((r) => {
+            const status = indexStatus(r);
+            const isOk = status === 'ok';
+            const isMissing = r.missing;
+            return (
+              <div
+                key={r.id}
+                className={`bg-white border rounded-2xl p-5 shadow-sm flex flex-col items-center gap-2 transition-all duration-200 hover:shadow-md ${
+                  isMissing ? 'border-slate-200/60' : isOk ? 'border-emerald-200/80' : 'border-red-200/80'
+                }`}
+              >
+                <ShieldIcon ok={isOk} missing={isMissing} size={52} />
+                <div className="text-xs font-semibold text-slate-500 text-center leading-tight mt-1">{r.nome}</div>
+                {!isMissing ? (
+                  <div className="text-lg font-extrabold text-slate-800">
+                    {r.fmt === "%" ? fmtPerc(r.valore) : (r.fmt ? `${r.valore?.toLocaleString("it-IT", {maximumFractionDigits:2})}${r.fmt}` : (r.note || "—"))}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => openVoci(r)}
+                    className="mt-1 px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 transition-colors duration-150 shadow-sm"
+                  >
+                    INSERISCI
+                  </button>
+                )}
+                <div className={`text-[10px] font-bold uppercase tracking-widest ${isMissing ? 'text-slate-400' : isOk ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {isMissing ? 'Mancante' : isOk ? 'In soglia' : 'Fuori soglia'}
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </section>
   );
 });
 
-/** Questionari Allerta Table — React.memo */
+/** Descrizioni per ogni questionario */
+const Q_DESCRIPTIONS = {
+  ade: "Verifica la presenza di debiti IVA scaduti rilevanti verso l'Agenzia delle Entrate.",
+  inps: "Controlla i contributi previdenziali non versati rispetto a quelli dell'anno precedente.",
+  risc: "Analizza i crediti affidati all'Agente della Riscossione.",
+  retrib: "Valuta i debiti per retribuzioni scadute dei dipendenti.",
+  forn: "Monitora i debiti verso fornitori e l'esposizione debitoria.",
+};
+
+/** Questionari Allerta — 5 card */
 const AlertTable = React.memo(function AlertTable({ loading, alertStatus, qFlags, openQuestionario }) {
   return (
-    <section className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm flex flex-col">
-      <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-transparent">
-        <h2 className="font-bold text-slate-800 flex items-center gap-2">
-          <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full"></div>
-          Questionari Allerta (CNDC)
+    <section>
+      <div className="mb-4">
+        <h2 className="font-bold text-slate-800 flex items-center gap-2 text-lg">
+          <div className="w-1.5 h-5 bg-amber-400 rounded-full"></div>
+          Questionari Allerta (CNDCEC)
         </h2>
       </div>
-      <div className="overflow-x-auto flex-1">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-100">
-            <tr>
-              <th className="px-6 py-4 text-left font-semibold">Voce Questionario</th>
-              <th className="px-6 py-4 text-left font-semibold">Stato Alert</th>
-              <th className="px-6 py-4 text-right font-semibold">Azione</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {loading ? (
-              Array.from({length:5}).map((_,i)=>(
-                <tr key={`sk-alert-${i}`}>
-                  <td className="px-6 py-4"><SkLine w="65%" /></td>
-                  <td className="px-6 py-4"><SkBadge w={70} h={24} /></td>
-                  <td className="px-6 py-4 flex justify-end"><SkBtn w={36} h={36} className="rounded-full" /></td>
-                </tr>
-              ))
-            ) : (
-              ALERT_LINKS.map((a)=> {
-                const s = alertStatus[a.id] || "missing";
-                const qVal = qFlags?.[Q_MAP[a.id]];
-                return (
-                  <tr key={a.id} className="hover:bg-slate-50/80 transition-colors duration-150 group">
-                    <td className="px-6 py-4 font-medium text-slate-700">{a.label}</td>
-                    <td className="px-6 py-4">
-                      <StatusIcon kind={s}/>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        {qVal == null ? (
-                          <button
-                            onClick={()=>openQuestionario(a.id)}
-                            className="px-4 py-2 rounded-xl border border-[#D8D2FF] bg-[#ECE8FF] text-[var(--brand)] text-xs font-semibold hover:bg-[var(--brand)] hover:text-white transition-all duration-200 shadow-sm whitespace-nowrap"
-                          >
-                            COMPILA ORA
-                          </button>
-                        ) : (
-                          <button
-                            onClick={()=>openQuestionario(a.id)}
-                            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all duration-150 font-semibold"
-                            title="Modifica questionario"
-                          >
-                            <PencilIcon className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {loading ? (
+          Array.from({length: 5}).map((_, i) => (
+            <div key={`sk-q-${i}`} className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm">
+              <SkLine w="60%" h={14} />
+              <div className="mt-2"><SkLine w="90%" h={10} /></div>
+              <div className="mt-4"><SkBadge w={80} /></div>
+            </div>
+          ))
+        ) : (
+          ALERT_LINKS.map((a) => {
+            const s = alertStatus[a.id] || "missing";
+            const qVal = qFlags?.[Q_MAP[a.id]];
+            const isOk = s === 'ok';
+            const isMissing = s === 'missing';
+            return (
+              <div
+                key={a.id}
+                className={`bg-white border rounded-2xl p-5 shadow-sm flex flex-col justify-between transition-all duration-200 hover:shadow-md ${
+                  isMissing ? 'border-slate-200/60' : isOk ? 'border-emerald-200/80' : 'border-red-200/80'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-slate-800 text-sm leading-tight">{a.label}</div>
+                    <div className="mt-1.5 text-xs text-slate-400 leading-relaxed">{Q_DESCRIPTIONS[a.id]}</div>
+                  </div>
+                  <div className="shrink-0">
+                    <ShieldIcon ok={isOk} missing={isMissing} size={36} />
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${isMissing ? 'text-slate-400' : isOk ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {isMissing ? 'Non compilato' : isOk ? 'Nessun rischio' : 'Rischio rilevato'}
+                  </span>
+                  {qVal == null ? (
+                    <button
+                      onClick={() => openQuestionario(a.id)}
+                      className="px-3 py-1.5 rounded-lg border border-[#D8D2FF] bg-[#ECE8FF] text-[var(--brand)] text-xs font-semibold hover:bg-[var(--brand)] hover:text-white transition-all duration-200 shadow-sm whitespace-nowrap"
+                    >
+                      COMPILA
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => openQuestionario(a.id)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all duration-150"
+                      title="Modifica questionario"
+                    >
+                      <PencilIcon className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </section>
   );
 });
+
 
 const GIUDIZIO_COLORS = {
   'Ottimo':              { bg: '#dcfce7', text: '#166534', border: '#bbf7d0' },
@@ -1067,23 +1089,23 @@ export default function AnalisiBilancioDettaglio() {
         </div>
       </section>
 
-      {/* INDICI + ALERT GRIDS — Memoized sub-components */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <IndiciBasicTable
-          loading={loading}
-          indici={indici}
-          missingCount={missingCount}
-          indexStatus={indexStatus}
-          openVoci={openVoci}
-          countMissingVoci={countMissingVoci}
-        />
-        <AlertTable
-          loading={loading}
-          alertStatus={alertStatus}
-          qFlags={qFlags}
-          openQuestionario={openQuestionario}
-        />
-      </div>
+      {/* INDICI PRIMARI — 5 card su una riga */}
+      <IndiciBasicTable
+        loading={loading}
+        indici={indici}
+        missingCount={missingCount}
+        indexStatus={indexStatus}
+        openVoci={openVoci}
+        countMissingVoci={countMissingVoci}
+      />
+
+      {/* QUESTIONARI ALLERTA — 5 card */}
+      <AlertTable
+        loading={loading}
+        alertStatus={alertStatus}
+        qFlags={qFlags}
+        openQuestionario={openQuestionario}
+      />
 
       <div className="grid grid-cols-1 gap-6 mt-6">
         <IndiciAdvancedTable
