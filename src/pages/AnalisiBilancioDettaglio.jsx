@@ -379,8 +379,16 @@ const AlertTable = React.memo(function AlertTable({ loading, alertStatus, qFlags
   );
 });
 
+const GIUDIZIO_COLORS = {
+  'Ottimo':              { bg: '#dcfce7', text: '#166534', border: '#bbf7d0' },
+  'Buono':               { bg: '#dbeafe', text: '#1e40af', border: '#bfdbfe' },
+  'Situazione Critica':  { bg: '#fff7ed', text: '#9a3412', border: '#fed7aa' },
+  'Rischio Elevato':     { bg: '#fef2f2', text: '#991b1b', border: '#fecaca' },
+};
+const GIUDIZIO_DEFAULT = { bg: '#f1f5f9', text: '#475569', border: '#e2e8f0' };
+
 /** Indici Avanzati Table — React.memo */
-const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, indiciAdvanced, indexStatus, openVoci, countMissingVoci, advancedGiudizio, advancedScore }) {
+const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, indiciAdvanced, indexStatus, openVoci, countMissingVoci, advancedGiudizio, advancedScore, advancedGiudizi }) {
   const advRating = classifyAdv(advancedGiudizio);
   return (
     <div className="space-y-6">
@@ -437,6 +445,7 @@ const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, i
             <tr>
               <th className="px-6 py-4 text-left font-semibold">Indice Analizzato</th>
               <th className="px-6 py-4 text-left font-semibold">Valore Calcolato</th>
+              <th className="px-6 py-4 text-left font-semibold">Giudizio</th>
               <th className="px-6 py-4 text-left font-semibold">Fuori soglia?</th>
             </tr>
           </thead>
@@ -446,6 +455,7 @@ const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, i
                 <tr key={`sk-adv-${i}`}>
                   <td className="px-6 py-4"><SkLine w="50%" /></td>
                   <td className="px-6 py-4"><SkLine w="30%" /></td>
+                  <td className="px-6 py-4"><SkBadge w={90} h={24} /></td>
                   <td className="px-6 py-4"><SkBadge w={80} h={24} /></td>
                 </tr>
               ))
@@ -473,6 +483,22 @@ const IndiciAdvancedTable = React.memo(function IndiciAdvancedTable({ loading, i
                         )}
                       </div>
                     )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {(() => {
+                      const g = advancedGiudizi?.[r.nome];
+                      if (!g || g === false) return <span className="text-xs text-slate-400">—</span>;
+                      const giudizio = g.Giudizio || 'N/A';
+                      const colors = GIUDIZIO_COLORS[giudizio] || GIUDIZIO_DEFAULT;
+                      return (
+                        <span
+                          className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap"
+                          style={{ backgroundColor: colors.bg, color: colors.text, border: `1px solid ${colors.border}` }}
+                        >
+                          {giudizio}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4">
                     <StatusIconTwo kind={indexStatus(r)} />
@@ -506,6 +532,7 @@ export default function AnalisiBilancioDettaglio() {
   // score Advanced dal backend (stessa logica dell'allerta/dashboard)
   const [advancedGiudizio, setAdvancedGiudizio] = useState(null);
   const [advancedScore, setAdvancedScore] = useState(null);
+  const [advancedGiudizi, setAdvancedGiudizi] = useState(null);
   const rating = classify(score ?? 0);
 
   // indici UI (persist per documento)
@@ -559,6 +586,8 @@ export default function AnalisiBilancioDettaglio() {
       const s = parseNum(advScoreRaw);
       if (s != null) setAdvancedScore(Math.max(0, Math.min(100, Math.round(s <= 1 ? s * 100 : s))));
     }
+    const advGiudiziMap = payload?.bilancioAnalisi?.AdvancedGiudizi ?? null;
+    if (advGiudiziMap) setAdvancedGiudizi(advGiudiziMap);
 
     const missingMap = {};
     const missSrc = payload?.bilancioAnalisi?.indiceVociMancanti || {};
@@ -998,6 +1027,7 @@ export default function AnalisiBilancioDettaglio() {
           countMissingVoci={countMissingVoci}
           advancedGiudizio={advancedGiudizio}
           advancedScore={advancedScore}
+          advancedGiudizi={advancedGiudizi}
         />
       </div>
 
