@@ -168,6 +168,10 @@ function computeBilancioScore(indiciBasic, alertStatusMap) {
 const classify = (score)=> SCALE.find(s=>score>=s.min) || SCALE.at(-1);
 const classifyAdv = (label) => SCALE_ADV.find(s => s.label === label) || SCALE_ADV.at(-1);
 const fmtPerc = (v) => v==null ? "N/A" : (v).toLocaleString("it-IT",{maximumFractionDigits:2}) + "%";
+
+// Converte camelCase/PascalCase XBRL in label leggibile
+// es. "TotaleCreditiVersoSociVersamentiAncoraDovuti" → "Totale Crediti Verso Soci Versamenti Ancora Dovuti"
+const camelToLabel = (s) => s ? s.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim() : s;
 const load = (k, def) => { try { const r = localStorage.getItem(k); return r?JSON.parse(r):def; } catch { return def; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
 function parseNum(v){
@@ -1180,7 +1184,7 @@ export default function AnalisiBilancioDettaglio() {
 
                           return (
                             <td className="px-4 py-3 font-medium text-slate-800">
-                              {labelsMap[base] || base}
+                              {labelsMap[base] || camelToLabel(base)}
                               {periodLabel && <span className="ml-2 px-1.5 py-0.5 rounded bg-amber-100 text-xs font-semibold text-amber-800">{periodLabel}</span>}
                             </td>
                           );
