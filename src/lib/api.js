@@ -238,3 +238,27 @@ export const BankStatements = {
     return api(`/bank-statements/${id}`, { method: "DELETE" });
   },
 };
+
+
+/* ----------------- Agent AI (RAG) ----------------- */
+export const Agent = {
+  /**
+   * Send a question to the RAG agent.
+   * @param {string} question
+   * @param {number} companyId
+   * @param {Array<{role:string,content:string}>} history
+   * @param {string|null} docType
+   * @returns {Promise<{ok,answer,sources,chunks_used}>}
+   */
+  chat(question, companyId, history = [], docType = null) {
+    return api("/agent/chat", {
+      method: "POST",
+      body: { question, company_id: companyId, history, doc_type: docType },
+    });
+  },
+
+  /** Check if the RAG service is up. */
+  health() {
+    return api("/agent/health");
+  },
+};
