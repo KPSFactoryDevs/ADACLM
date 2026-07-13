@@ -15,24 +15,28 @@ export default function ChatWidget() {
   const { pathname } = useLocation();
   const pageContext = usePageContext();
 
+  // Keep a ref so the send() callback always sees the latest context
+  const pageContextRef = useRef(pageContext);
+  useEffect(() => {
+    pageContextRef.current = pageContext;
+    window.__ADA_PAGE_CONTEXT__ = pageContext;
+  }, [pageContext]);
+
   const companyId = (() => {
     try { return JSON.parse(localStorage.getItem("sb_company"))?.id || 1; }
     catch { return 1; }
   })();
 
-  /* close on Esc */
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  /* focus input when opened */
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 150);
   }, [open]);
 
-  /* auto-scroll */
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
@@ -47,14 +51,15 @@ export default function ChatWidget() {
     setMessages((prev) => [...prev, { role: "user", content: q }]);
     setLoading(true);
 
-    // Build enriched question with page context
+    // Read context from ref (always fresh) or window fallback
+    const ctx = pageContextRef.current || window.__ADA_PAGE_CONTEXT__ || null;
+
     let enrichedQuestion = q;
-    if (pageContext) {
-      const ctxStr = typeof pageContext.data === 'object'
-        ? JSON.stringify(pageContext.data, null, 0)
-        : String(pageContext.data || '');
-      enrichedQuestion = `[Contesto pagina: ${pageContext.page || pathname}${pageContext.summary ? ' - ' + pageContext.summary : ''}]
-${ctxStr ? 'Dati visibili: ' + ctxStr.slice(0, 3000) + '\n' : ''}Domanda utente: ${q}`;
+    if (ctx) {
+      const ctxStr = typeof ctx.data === 'object'
+        ? JSON.stringify(ctx.data, null, 0)
+        : String(ctx.data || '');
+      enrichedQuestion = `[Contesto pagina: ${ctx.page || pathname}${ctx.summary ? ' - ' + ctx.summary : ''}]\n${ctxStr ? 'Dati visibili: ' + ctxStr.slice(0, 4000) + '\n' : ''}Domanda utente: ${q}`;
     }
 
     try {
@@ -71,7 +76,7 @@ ${ctxStr ? 'Dati visibili: ' + ctxStr.slice(0, 3000) + '\n' : ''}Domanda utente:
     } finally {
       setLoading(false);
     }
-  }, [input, loading, messages, companyId, pageContext, pathname]);
+  }, [input, loading, messages, companyId, pathname]);
 
   const onKey = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
@@ -79,139 +84,179 @@ ${ctxStr ? 'Dati visibili: ' + ctxStr.slice(0, 3000) + '\n' : ''}Domanda utente:
 
   return (
     <>
-      {/* Chat panel */}
+      {/* FAB */}
+      <button
+        onClick={() => setOpen((s) => !s)}
+        style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 9998,
+          width: 52, height: 52, borderRadius: "50%",
+          background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+          border: "none", cursor: "pointer",
+          boxShadow: "0 4px 20px rgba(99,102,241,.45)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          transition: "transform .2s",
+          transform: open ? "scale(0)" : "scale(1)",
+        }}
+        aria-label="Apri chat AI"
+      >
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 5.58 2 10c0 2.24 1.12 4.26 2.92 5.68L4 20l4.73-2.09C9.77 18.29 10.86 18.5 12 18.5c5.52 0 10-3.58 10-8S17.52 2 12 2z" fill="#fff"/>
+        </svg>
+      </button>
+
+      {/* Panel */}
       {open && (
-        <div className="fixed bottom-20 right-6 w-96 max-w-[92vw] bg-white border border-slate-200/60 rounded-2xl shadow-2xl overflow-hidden z-50 animate-fade-in-up flex flex-col"
-          style={{ maxHeight: "min(70vh, 560px)" }}
-        >
+        <div style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 9999,
+          width: 380, height: 520, borderRadius: 20,
+          background: "#fff", border: "1px solid #e2e8f0",
+          boxShadow: "0 20px 60px rgba(0,0,0,.18)",
+          display: "flex", flexDirection: "column",
+          overflow: "hidden",
+          animation: "chatSlideUp .25s ease-out",
+        }}>
           {/* Header */}
-          <div className="h-12 px-4 flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-[#F7F6FF] to-white shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#5b63ff] to-[#7e85ff] grid place-items-center">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="4" y="6" width="16" height="12" rx="3" stroke="white" strokeWidth="2"/><circle cx="9" cy="12" r="1.3" fill="white"/><circle cx="15" cy="12" r="1.3" fill="white"/></svg>
+          <div style={{
+            padding: "14px 16px", display: "flex", alignItems: "center", gap: 10,
+            background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+            color: "#fff",
+          }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: "50%",
+              background: "rgba(255,255,255,.2)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16,
+            }}>🤖</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>ADA AI Agent</div>
+              <div style={{ fontSize: 11, opacity: .8 }}>
+                {pageContextRef.current
+                  ? `📍 ${pageContextRef.current.page || 'Pagina'}`
+                  : "Assistente intelligente"}
               </div>
-              <span className="font-bold text-sm text-slate-800">ADA AI</span>
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => { setOpen(false); navigate("/aichat"); }}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#5b63ff] hover:bg-slate-100 transition-colors"
-                title="Apri in pagina intera"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-              </button>
-              <button
-                onClick={() => setOpen(false)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                aria-label="Chiudi"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-              </button>
-            </div>
+            <button
+              onClick={() => setOpen(false)}
+              style={{
+                background: "rgba(255,255,255,.15)", border: "none", borderRadius: 8,
+                width: 28, height: 28, cursor: "pointer", color: "#fff",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >✕</button>
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+          <div ref={scrollRef} style={{
+            flex: 1, overflowY: "auto", padding: "12px 14px",
+            display: "flex", flexDirection: "column", gap: 10,
+            background: "#f8fafc",
+          }}>
             {messages.length === 0 && !loading && (
-              <div className="text-center py-8">
-                <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-[#5b63ff] to-[#7e85ff] grid place-items-center mb-3">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="6" width="16" height="12" rx="3" stroke="white" strokeWidth="1.6"/><path d="M12 2v4" stroke="white" strokeWidth="1.6" strokeLinecap="round"/><circle cx="9" cy="12" r="1.3" fill="white"/><circle cx="15" cy="12" r="1.3" fill="white"/></svg>
-                </div>
-                <p className="text-sm font-semibold text-slate-700 mb-1">Ciao! Chiedimi qualcosa</p>
-                <p className="text-xs text-slate-400">Bilanci, CR, fatture o guida ADA</p>
+              <div style={{
+                textAlign: "center", color: "#94a3b8", fontSize: 13,
+                marginTop: 60, lineHeight: 1.6,
+              }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
+                Chiedimi qualsiasi cosa su{" "}
+                {pageContextRef.current?.page
+                  ? <strong>{pageContextRef.current.page}</strong>
+                  : "ADA"}
+                !
               </div>
             )}
 
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} gap-1.5`}>
-                {msg.role === "assistant" && (
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#5b63ff] to-[#7e85ff] grid place-items-center shrink-0 mt-0.5">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><rect x="4" y="6" width="16" height="12" rx="3" stroke="white" strokeWidth="2.5"/></svg>
+            {messages.map((m, i) => (
+              <div key={i} style={{
+                alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+                maxWidth: "85%",
+              }}>
+                <div style={{
+                  padding: "10px 14px", borderRadius: 14, fontSize: 13.5, lineHeight: 1.55,
+                  ...(m.role === "user"
+                    ? { background: "#6366f1", color: "#fff", borderBottomRightRadius: 4 }
+                    : { background: "#fff", color: "#1e293b", border: "1px solid #e2e8f0", borderBottomLeftRadius: 4 }),
+                  whiteSpace: "pre-wrap",
+                }}>
+                  {m.content}
+                </div>
+                {m.sources?.length > 0 && (
+                  <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {m.sources.map((s, j) => (
+                      <span key={j} style={{
+                        fontSize: 10, background: "#f1f5f9", border: "1px solid #e2e8f0",
+                        borderRadius: 6, padding: "2px 6px", color: "#64748b",
+                      }}>
+                        📄 {s.filename || s.document_id}
+                      </span>
+                    ))}
                   </div>
                 )}
-                <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
-                  msg.role === "user"
-                    ? "bg-[#5b63ff] text-white rounded-br-sm"
-                    : "bg-slate-50 text-slate-700 border border-slate-100 rounded-bl-sm"
-                }`}>
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                  {msg.sources?.length > 0 && (
-                    <div className="mt-1.5 pt-1 border-t border-slate-200/50 flex flex-wrap gap-1">
-                      {msg.sources.slice(0, 3).map((s, j) => (
-                        <span key={j} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
-                          📄 {s.filename || s.document_id}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </div>
             ))}
 
-            {/* typing */}
             {loading && (
-              <div className="flex gap-1.5">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#5b63ff] to-[#7e85ff] grid place-items-center shrink-0">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><rect x="4" y="6" width="16" height="12" rx="3" stroke="white" strokeWidth="2.5"/></svg>
-                </div>
-                <div className="bg-slate-50 border border-slate-100 rounded-xl rounded-bl-sm px-3 py-2 flex gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#5b63ff] animate-bounce" style={{ animationDelay: "0s" }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#5b63ff] animate-bounce" style={{ animationDelay: "0.15s" }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#5b63ff] animate-bounce" style={{ animationDelay: "0.3s" }} />
+              <div style={{ alignSelf: "flex-start", maxWidth: "85%" }}>
+                <div style={{
+                  padding: "10px 14px", borderRadius: 14, fontSize: 13,
+                  background: "#fff", border: "1px solid #e2e8f0",
+                  display: "flex", alignItems: "center", gap: 6, color: "#94a3b8",
+                }}>
+                  <span className="dot-pulse" />
+                  Sto pensando…
                 </div>
               </div>
             )}
           </div>
 
           {/* Input */}
-          <div className="border-t border-slate-100 px-3 py-2.5 bg-slate-50/50 shrink-0">
-            <div className="flex gap-2">
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onKey}
-                placeholder="Scrivi una domanda..."
-                disabled={loading}
-                className="flex-1 h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#5b63ff]/30 focus:border-[#5b63ff] transition disabled:opacity-50"
-              />
-              <button
-                onClick={send}
-                disabled={!input.trim() || loading}
-                className="h-9 w-9 rounded-lg bg-[#5b63ff] text-white grid place-items-center shrink-0 hover:bg-[#4a52ee] transition disabled:opacity-40"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <path d="M22 2 11 13" /><path d="M22 2 15 22 11 13 2 9 22 2Z" />
-                </svg>
-              </button>
-            </div>
+          <div style={{
+            padding: "10px 12px", borderTop: "1px solid #e2e8f0",
+            display: "flex", gap: 8, background: "#fff",
+          }}>
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKey}
+              placeholder="Scrivi un messaggio…"
+              style={{
+                flex: 1, height: 38, borderRadius: 10, border: "1px solid #e2e8f0",
+                padding: "0 12px", fontSize: 13.5, outline: "none",
+              }}
+            />
+            <button
+              onClick={send}
+              disabled={loading || !input.trim()}
+              style={{
+                width: 38, height: 38, borderRadius: 10,
+                background: loading || !input.trim() ? "#e2e8f0" : "#6366f1",
+                border: "none", cursor: loading || !input.trim() ? "default" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "background .2s",
+              }}
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                <path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z" fill={loading || !input.trim() ? "#94a3b8" : "#fff"} />
+              </svg>
+            </button>
           </div>
         </div>
       )}
 
-      {/* Floating Button */}
-      <button
-        onClick={() => setOpen((s) => !s)}
-        className="fixed bottom-6 right-6 w-13 h-13 rounded-full shadow-lg bg-[#5b63ff] text-white grid place-items-center hover:opacity-90 z-50 transition-all hover:scale-105 hover:shadow-xl hover:shadow-[#5b63ff]/25"
-        aria-label="Apri chat AI"
-        style={{ width: 52, height: 52 }}
-      >
-        {open ? (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        ) : (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path d="M4 6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H9l-5 5V6Z" stroke="white" strokeWidth="1.8" />
-            <circle cx="10" cy="9.5" r="1" fill="white"/>
-            <circle cx="14" cy="9.5" r="1" fill="white"/>
-            <circle cx="18" cy="9.5" r="1" fill="white"/>
-          </svg>
-        )}
-        {/* notification dot */}
-        {!open && messages.length === 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white" />
-        )}
-      </button>
+      <style>{`
+        @keyframes chatSlideUp {
+          from { opacity: 0; transform: translateY(20px) scale(.95); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .dot-pulse {
+          display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+          background: #94a3b8; animation: dotPulse 1.2s infinite;
+        }
+        @keyframes dotPulse {
+          0%, 80%, 100% { opacity: .3; transform: scale(.8); }
+          40% { opacity: 1; transform: scale(1.2); }
+        }
+      `}</style>
     </>
   );
 }

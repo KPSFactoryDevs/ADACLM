@@ -50,7 +50,12 @@ export function useSetPageContext(ctx) {
   const { setPageContext } = useContext(PageContext);
 
   useEffect(() => {
-    if (ctx) setPageContext(ctx);
+    if (ctx) {
+      setPageContext(ctx);
+      window.__ADA_PAGE_CONTEXT__ = ctx;
+    } else {
+      window.__ADA_PAGE_CONTEXT__ = null;
+    }
   }, [JSON.stringify(ctx)]); // re-set when ctx changes
 }
 
