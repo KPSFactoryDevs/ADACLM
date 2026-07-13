@@ -16,6 +16,7 @@ export default function Shell({ children, onLogout }) {
       { to: "/analisi-cr", label: "Centrale Rischi", icon: TrendIcon },
       { to: "/credito/clienti", label: "Cessione", icon: FactoringNavIcon },
       { to: "/allerta", label: "Questionari", icon: TrendIcon },
+      { to: "/aichat", label: "AI Agent", icon: BotIcon },
       { to: "/impostazioni-azienda", label: "Azienda", icon: UsersIcon },
     ],
     []
