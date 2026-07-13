@@ -258,30 +258,38 @@ period = id,  // se lo passi, override
   }, [effectivePeriod, dataInizio, dataFine, inputBanks]);
 
   const PANORAMICA = data.panoramica;
-  const INTERMEDIARI = data.intermediari;
+  const ANOMALIE_UTILIZZI = data.anomalieUtilizzi;
+  const ANOMALIE_LIEVI = data.anomalieLievi;
+  const SCONF_90   = data.sconfini.entro90;
+  const SCONF_180  = data.sconfini.entro180;
+  const SCONF_PLUS = data.sconfini.oltre180;
+  const AFFIDAMENTI = data.affidamenti;
+  const POS_RISCHI = data.posizioniRischi;
+  const GARANZIE   = data.garanzie;
 
   // --- Page context for AI ChatWidget ---
   useSetPageContext(
     !loading && PANORAMICA ? {
       page: "Analisi Centrale Rischi",
-      summary: `Centrale Rischi - ${PANORAMICA.periodoAnalisi || 'N/D'}`,
+      summary: `Centrale Rischi - ${PANORAMICA.period || 'N/D'} - Score: ${PANORAMICA.score?.toFixed(0) || 'N/D'}/100`,
       data: {
-        periodo: PANORAMICA.periodoAnalisi,
-        accordatoTotale: PANORAMICA.accordatoTotale,
-        utilizzatoTotale: PANORAMICA.utilizzatoTotale,
-        percentualeUtilizzato: PANORAMICA.percentualeUtilizzato,
-        sconfinantiTotale: PANORAMICA.sconfinantiTotale,
-        scadutoTotale: PANORAMICA.scadutoTotale,
-        intermediari: INTERMEDIARI?.length || 0,
+        score: PANORAMICA.score,
+        periodo: PANORAMICA.period,
+        numIntermediari: PANORAMICA.numIntermediari,
+        posizioniContestate: PANORAMICA.contestate,
+        anomalieUtilizzi: ANOMALIE_UTILIZZI?.map(a => ({ tipo: a.label, ok: a.ok })),
+        anomalieLievi: ANOMALIE_LIEVI?.map(a => ({ tipo: a.label, ok: a.ok, valore: a.value })),
+        sconfiniEntro90gg: SCONF_90?.map(s => ({ data: s.data, banca: s.banca, categoria: s.categoria, importo: s.importo })),
+        sconfiniEntro180gg: SCONF_180?.map(s => ({ data: s.data, banca: s.banca, categoria: s.categoria, importo: s.importo })),
+        sconfiniOltre180gg: SCONF_PLUS?.map(s => ({ data: s.data, banca: s.banca, categoria: s.categoria, importo: s.importo })),
+        affidamenti: AFFIDAMENTI?.map(a => ({ banca: a.banca, categoria: a.categoria, accordato: a.accordato, utilizzato: a.utilizzato })),
+        posizioniRischio: POS_RISCHI,
+        garanzie: GARANZIE,
       }
     } : null
   );
-  const ANOMALIE_UTILIZZI = data.anomalieUtilizzi;
-  const ANOMALIE_LIEVI = data.anomalieLievi;
-  const SCONF_90   = data.sconfini.entro90;
-  const SCONF_180  = data.sconfini.entro180;
-  const SCONF_OLTRE= data.sconfini.oltre180;
-  const AFFIDAMENTI = data.affidamenti;
+
+  const INTERMEDIARI = data.intermediari;
   const SERIE_COMPLESSIVO = data.serie.complessivo;
   const SERIE_SCADENZA    = data.serie.scadenza;
   const SERIE_AUTOLIQ     = data.serie.autoliquida;
@@ -544,7 +552,7 @@ period = id,  // se lo passi, override
             {key:"importo", title:"Importo Sconfinamento", render:(v)=>fmtMoney(v)},
             {key:"utilizzo", title:"Utilizzo Posizione Sconfinata", render:(v)=>fmtMoney(v)},
             {key:"probErrata", title:"Prob. Errata"},
-          ]} rows={SCONF_OLTRE}/>
+          ]} rows={SCONF_PLUS}/>
         </Card>
       </div>
 
