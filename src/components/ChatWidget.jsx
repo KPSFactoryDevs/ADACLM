@@ -91,7 +91,7 @@ export default function ChatWidget() {
       const ctxStr = typeof ctx.data === 'object'
         ? JSON.stringify(ctx.data, null, 0)
         : String(ctx.data || '');
-      enrichedQuestion = `[Contesto pagina: ${ctx.page || pathname}${ctx.summary ? ' - ' + ctx.summary : ''}]\n${ctxStr ? 'Dati visibili: ' + ctxStr.slice(0, 4000) + '\n' : ''}Domanda utente: ${q}`;
+      enrichedQuestion = `[Contesto pagina: ${ctx.page || pathname}${ctx.summary ? ' - ' + ctx.summary : ''}]\n${ctxStr ? 'Dati visibili: ' + ctxStr.slice(0, 10000) + '\n' : ''}Domanda utente: ${q}`;
     }
 
     try {

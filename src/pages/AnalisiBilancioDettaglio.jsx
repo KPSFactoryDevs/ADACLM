@@ -619,7 +619,33 @@ export default function AnalisiBilancioDettaglio() {
     setTimeout(() => setToast(null), 3000);
   }
 
-  // --- Page context for AI ChatWidget ---
+  // Extract ALL bilancio elements, deduplicated — skip zeroes, empties, anagrafica
+  const extractAllVoci = (bilJSON) => {
+    try {
+      const parsed = typeof bilJSON === 'string' ? JSON.parse(bilJSON) : bilJSON;
+      const el = parsed?.elements;
+      if (!el) return null;
+      const skip = /anagrafi|denominaz|codicefiscale|partitaiva|sede|indirizzo|cap|comune|provincia|nazione|telefono|fax|email|pec|registro|rea|camera|ateco|data.*costituz|data.*iscrizione/i;
+      const result = {};
+      for (const [key, entry] of Object.entries(el)) {
+        if (skip.test(key)) continue;
+        if (Array.isArray(entry)) {
+          for (const item of entry) {
+            if (item?.value !== undefined && item?.value !== null && item?.value !== '') {
+              const n = Number(item.value);
+              if (n === 0) break; // skip zero-valued entries
+              result[key] = isNaN(n) ? item.value : n;
+              break;
+            }
+          }
+        } else if (entry !== null && entry !== undefined && entry !== '' && entry !== 0) {
+          result[key] = Number(entry) || entry;
+        }
+      }
+      return Object.keys(result).length ? result : null;
+    } catch { return null; }
+  };
+
   useSetPageContext(
     recap ? {
       page: "Analisi Bilancio",
@@ -629,6 +655,7 @@ export default function AnalisiBilancioDettaglio() {
         periodo: recap.period,
         giudizio: advancedGiudizio,
         score: advancedScore,
+        vociBilancio: extractAllVoci(recap.bilancioJSON),
         indici: indici?.filter(i => !i.missing).map(i => ({ nome: i.nome, valore: i.valore, fuoriSoglia: i.fuori })),
         indiciAvanzati: indiciAdvanced?.filter(i => !i.missing).map(i => ({ nome: i.nome, valore: i.valore, fuoriSoglia: i.fuori })),
       }
