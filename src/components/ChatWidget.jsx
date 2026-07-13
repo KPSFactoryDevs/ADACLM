@@ -54,6 +54,8 @@ export default function ChatWidget() {
   useEffect(() => {
     pageContextRef.current = pageContext;
     window.__ADA_PAGE_CONTEXT__ = pageContext;
+    if (pageContext) console.log('[ADA AI] Page context SET:', pageContext.page, Object.keys(pageContext.data || {}));
+    else console.log('[ADA AI] Page context CLEARED');
   }, [pageContext]);
 
   const companyId = (() => {
@@ -93,6 +95,7 @@ export default function ChatWidget() {
         : String(ctx.data || '');
       enrichedQuestion = `[Contesto pagina: ${ctx.page || pathname}${ctx.summary ? ' - ' + ctx.summary : ''}]\n${ctxStr ? 'Dati visibili: ' + ctxStr.slice(0, 10000) + '\n' : ''}Domanda utente: ${q}`;
     }
+    console.log('[ADA AI] Send:', { hasCtx: !!ctx, questionLen: enrichedQuestion.length, ctxPage: ctx?.page });
 
     try {
       const res = await Agent.chat(enrichedQuestion, companyId, history);
