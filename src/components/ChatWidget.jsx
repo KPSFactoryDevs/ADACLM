@@ -86,19 +86,18 @@ export default function ChatWidget() {
     setMessages((prev) => [...prev, { role: "user", content: q }]);
     setLoading(true);
 
+    // Get page context — send as structured separate field, NOT injected in question
     const ctx = pageContextRef.current || window.__ADA_PAGE_CONTEXT__ || null;
+    const pageCtx = ctx ? {
+      page: ctx.page || pathname,
+      summary: ctx.summary || '',
+      data: ctx.data || {},
+    } : null;
 
-    let enrichedQuestion = q;
-    if (ctx) {
-      const ctxStr = typeof ctx.data === 'object'
-        ? JSON.stringify(ctx.data, null, 0)
-        : String(ctx.data || '');
-      enrichedQuestion = `[Contesto pagina: ${ctx.page || pathname}${ctx.summary ? ' - ' + ctx.summary : ''}]\n${ctxStr ? 'Dati visibili: ' + ctxStr.slice(0, 10000) + '\n' : ''}Domanda utente: ${q}`;
-    }
-    console.log('[ADA AI] Send:', { hasCtx: !!ctx, questionLen: enrichedQuestion.length, ctxPage: ctx?.page });
+    console.log('[ADA AI] Send:', { question: q, hasCtx: !!pageCtx, ctxPage: pageCtx?.page });
 
     try {
-      const res = await Agent.chat(enrichedQuestion, companyId, history);
+      const res = await Agent.chat(q, companyId, history, null, pageCtx);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: res.answer || "Nessuna risposta.", sources: res.sources },

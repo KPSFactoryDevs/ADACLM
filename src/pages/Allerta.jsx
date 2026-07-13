@@ -1,6 +1,7 @@
 // src/pages/Allerta.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { api, API_BASE } from "../lib/api";
+import { useSetPageContext } from "../contexts/PageContext";
 
 /** ---------- AS IS: gruppi + domande reali ---------- */
 const ASIS_GROUPS = [
@@ -258,6 +259,35 @@ export default function Allerta(){
 
   const asIsCount = useMemo(()=> ASIS_QUESTIONS.reduce((n,q)=>n + (asIs[q.key]==="Si" || asIs[q.key]==="No" ? 1:0), 0), [asIs]);
   const toBeCount = useMemo(()=> TO_BE_QUESTIONS.reduce((n,q)=>n + (toBe[q.id] ? 1:0), 0), [toBe]);
+
+  // --- Page context for AI ChatWidget ---
+  useSetPageContext(
+    !loading ? {
+      page: "Sistema di Allerta",
+      summary: `Questionario AS IS: ${asIsCount}/${ASIS_QUESTIONS.length} compilate, TO BE: ${toBeCount}/${TO_BE_QUESTIONS.length} compilate`,
+      data: {
+        questionarioAsIs: {
+          compilate: asIsCount,
+          totali: ASIS_QUESTIONS.length,
+          risposte: ASIS_QUESTIONS.filter(q => asIs[q.key]).map(q => ({
+            domanda: q.text,
+            risposta: asIs[q.key],
+            dettagli: asIsDetails[q.key] || null,
+          })),
+          risposteSi: ASIS_QUESTIONS.filter(q => asIs[q.key] === "Si").length,
+          risposteNo: ASIS_QUESTIONS.filter(q => asIs[q.key] === "No").length,
+        },
+        questionarioToBe: {
+          compilate: toBeCount,
+          totali: TO_BE_QUESTIONS.length,
+          risposte: TO_BE_QUESTIONS.filter(q => toBe[q.id]).map(q => ({
+            domanda: q.text,
+            risposta: toBe[q.id],
+          })),
+        },
+      }
+    } : null
+  );
 
   const sendAsIs = async ()=>{
     try{

@@ -1,5 +1,6 @@
 // src/pages/Fatture.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import { useSetPageContext } from "../contexts/PageContext";
 
 // in cima al file (import)
 import {
@@ -374,6 +375,32 @@ export default function Fatture() {
 
   const listIssued = issuedSorted.slice((pageIssuedSafe-1)*perPage, pageIssuedSafe*perPage);
   const listReceived = receivedSorted.slice((pageReceivedSafe-1)*perPage, pageReceivedSafe*perPage);
+
+  // --- Page context for AI ChatWidget ---
+  useSetPageContext(
+    !loading && fatture.length > 0 ? {
+      page: "Fatture",
+      summary: `${fatture.length} fatture totali — ${fatture.filter(f => f.direction === 'issued').length} emesse, ${fatture.filter(f => f.direction === 'received').length} ricevute`,
+      data: {
+        totale_fatture: fatture.length,
+        fatture_emesse: fatture.filter(f => f.direction === 'issued').length,
+        fatture_ricevute: fatture.filter(f => f.direction === 'received').length,
+        importo_totale_emesse: fatture.filter(f => f.direction === 'issued').reduce((s, f) => s + f.importo, 0),
+        importo_totale_ricevute: fatture.filter(f => f.direction === 'received').reduce((s, f) => s + f.importo, 0),
+        stati: [...new Set(fatture.map(f => f.stato))].map(stato => ({
+          stato,
+          conteggio: fatture.filter(f => f.stato === stato).length,
+          importo: fatture.filter(f => f.stato === stato).reduce((s, f) => s + f.importo, 0),
+        })),
+        top_clienti: [...new Map(fatture.filter(f => f.direction === 'issued').map(f => [
+          f.cliente,
+          { nome: f.cliente, piva: f.piva, importo_totale: fatture.filter(ff => ff.cliente === f.cliente && ff.direction === 'issued').reduce((s, ff) => s + ff.importo, 0), num_fatture: fatture.filter(ff => ff.cliente === f.cliente && ff.direction === 'issued').length }
+        ])).values()].sort((a, b) => b.importo_totale - a.importo_totale).slice(0, 10),
+        anno_selezionato: anni[yearIdx],
+        connesso_fatture_in_cloud: ficStatus.connected,
+      }
+    } : null
+  );
 
   // ---- grafici (restano basati su tutto l'anno, non solo pagina)
   const bars = useMemo(()=>{

@@ -248,12 +248,17 @@ export const Agent = {
    * @param {number} companyId
    * @param {Array<{role:string,content:string}>} history
    * @param {string|null} docType
+   * @param {{page:string,summary:string,data:object}|null} pageContext
    * @returns {Promise<{ok,answer,sources,chunks_used}>}
    */
-  chat(question, companyId, history = [], docType = null) {
+  chat(question, companyId, history = [], docType = null, pageContext = null) {
+    const body = { question, company_id: companyId, history, doc_type: docType };
+    if (pageContext) {
+      body.page_context = pageContext;
+    }
     return api("/agent/chat", {
       method: "POST",
-      body: { question, company_id: companyId, history, doc_type: docType },
+      body,
     });
   },
 
