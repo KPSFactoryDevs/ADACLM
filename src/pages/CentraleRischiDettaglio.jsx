@@ -293,8 +293,7 @@ period = id,  // se lo passi, override
   const SERIE_COMPLESSIVO = data.serie.complessivo;
   const SERIE_SCADENZA    = data.serie.scadenza;
   const SERIE_AUTOLIQ     = data.serie.autoliquida;
-  const POSIZIONI_RISCHI  = data.posizioniRischi;
-  const GARANZIE          = data.garanzie;
+  const POSIZIONI_RISCHI  = POS_RISCHI;
   const ANAGRAFICA        = data.anagrafica;
   const RIGHE_GREZZE      = data.righeGrezze;
 
