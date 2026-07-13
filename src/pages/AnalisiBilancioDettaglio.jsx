@@ -620,12 +620,47 @@ export default function AnalisiBilancioDettaglio() {
   }
 
   // Extract ALL bilancio elements, deduplicated — skip zeroes, empties, anagrafica
+  // Convert XBRL keys to human-readable Italian labels
+  const xbrlLabels = {
+    RicaviDaVendite: "Fatturato (Ricavi da Vendite)",
+    RicaviDelleVenditeEDellePrestazioni: "Fatturato (Ricavi Vendite e Prestazioni)",
+    ValoreDellaProduzione: "Valore della Produzione",
+    CostiDellaProduzione: "Costi della Produzione",
+    DifferenzaTraValoreECostiDellaProduzione: "Differenza Valore-Costi Produzione (EBITDA)",
+    UtilePerditaDellEsercizio: "Utile/Perdita dell'Esercizio",
+    TotaleAttivo: "Totale Attivo",
+    TotalePassivoEPatrimonioNetto: "Totale Passivo e Patrimonio Netto",
+    TotalePatrimonioNetto: "Patrimonio Netto",
+    DisponibilitaLiquide: "Disponibilità Liquide (Cassa)",
+    TotaleDisponibilitaLiquide: "Totale Disponibilità Liquide",
+    CreditiVersoClientiEntroEsercizioSuccessivo: "Crediti vs Clienti (entro esercizio)",
+    DebitiVersoFornitoriEntroEsercizioSuccessivo: "Debiti vs Fornitori (entro esercizio)",
+    DebitiBanche: "Debiti verso Banche",
+    DebitiVersoBanche: "Debiti verso Banche",
+    TotaleAmmortamentiESvalutazioni: "Ammortamenti e Svalutazioni",
+    InteressiEAltriOneriFinanziari: "Oneri Finanziari (Interessi)",
+    TotaleCreditiAttivoCircolante: "Totale Crediti (Attivo Circolante)",
+    TotaleDebiti: "Totale Debiti",
+    TotaleRimanenze: "Totale Rimanenze",
+    ImmobilizzazioniMateriali: "Immobilizzazioni Materiali",
+    ImmobilizzazioniImmateriali: "Immobilizzazioni Immateriali",
+    CapitaleSociale: "Capitale Sociale",
+    RiserveLegale: "Riserva Legale",
+    ImposteEsercizio: "Imposte dell'Esercizio",
+    ProventiEOneriFinanziari: "Proventi e Oneri Finanziari",
+  };
+  const humanKey = (xbrlKey) => {
+    if (xbrlLabels[xbrlKey]) return xbrlLabels[xbrlKey];
+    // fallback: split camelCase into words
+    return xbrlKey.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+  };
+
   const extractAllVoci = (bilJSON) => {
     try {
       const parsed = typeof bilJSON === 'string' ? JSON.parse(bilJSON) : bilJSON;
       const el = parsed?.elements;
       if (!el) return null;
-      const skip = /anagrafi|denominaz|codicefiscale|partitaiva|sede|indirizzo|cap|comune|provincia|nazione|telefono|fax|email|pec|registro|rea|camera|ateco|data.*costituz|data.*iscrizione/i;
+      const skip = /anagrafi|denominaz|codicefiscale|partitaiva|sede|indirizzo|cap|comune|provincia|nazione|telefono|fax|email|pec|registro|rea|camera|ateco|data.*costituz|data.*iscrizione|contesti|DatiAnagrafici/i;
       const result = {};
       for (const [key, entry] of Object.entries(el)) {
         if (skip.test(key)) continue;
@@ -633,13 +668,13 @@ export default function AnalisiBilancioDettaglio() {
           for (const item of entry) {
             if (item?.value !== undefined && item?.value !== null && item?.value !== '') {
               const n = Number(item.value);
-              if (n === 0) break; // skip zero-valued entries
-              result[key] = isNaN(n) ? item.value : n;
+              if (n === 0) break;
+              result[humanKey(key)] = isNaN(n) ? item.value : n;
               break;
             }
           }
         } else if (entry !== null && entry !== undefined && entry !== '' && entry !== 0) {
-          result[key] = Number(entry) || entry;
+          result[humanKey(key)] = Number(entry) || entry;
         }
       }
       return Object.keys(result).length ? result : null;
