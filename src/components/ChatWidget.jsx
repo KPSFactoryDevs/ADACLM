@@ -4,8 +4,43 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Agent } from "../lib/api";
 import { usePageContext } from "../contexts/PageContext";
 
+/* ── Minimal Markdown → HTML renderer ── */
+function renderMarkdown(text) {
+  if (!text) return "";
+  let html = text
+    // escape HTML
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    // headers
+    .replace(/^#### (.+)$/gm, '<h4 style="font-size:13px;font-weight:700;margin:10px 0 4px;color:#1e293b">$1</h4>')
+    .replace(/^### (.+)$/gm, '<h3 style="font-size:14px;font-weight:700;margin:12px 0 4px;color:#1e293b">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 style="font-size:15px;font-weight:700;margin:14px 0 6px;color:#0f172a">$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 style="font-size:16px;font-weight:700;margin:16px 0 6px;color:#0f172a">$1</h1>')
+    // bold + italic
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // inline code
+    .replace(/`([^`]+)`/g, '<code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:12px">$1</code>')
+    // horizontal rule
+    .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #e2e8f0;margin:10px 0"/>')
+    // unordered lists (- item)
+    .replace(/^(\s*)[-•] (.+)$/gm, (_, indent, content) => {
+      const level = Math.floor(indent.length / 2);
+      return `<li style="margin-left:${level * 16}px;margin-bottom:2px;list-style:disc;padding-left:4px">${content}</li>`;
+    })
+    // ordered lists (1. item)
+    .replace(/^\d+\. (.+)$/gm, '<li style="margin-bottom:2px;list-style:decimal;padding-left:4px">$1</li>')
+    // wrap consecutive <li> in <ul>/<ol>
+    .replace(/((?:<li[^>]*>.*<\/li>\n?)+)/g, '<ul style="margin:4px 0 4px 12px;padding:0">$1</ul>')
+    // line breaks (double newline = paragraph, single = br)
+    .replace(/\n\n/g, '</p><p style="margin:8px 0">')
+    .replace(/\n/g, '<br/>');
+  return `<p style="margin:0">${html}</p>`;
+}
+
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,7 +50,6 @@ export default function ChatWidget() {
   const { pathname } = useLocation();
   const pageContext = usePageContext();
 
-  // Keep a ref so the send() callback always sees the latest context
   const pageContextRef = useRef(pageContext);
   useEffect(() => {
     pageContextRef.current = pageContext;
@@ -41,7 +75,6 @@ export default function ChatWidget() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
-  /* send message */
   const send = useCallback(async () => {
     const q = input.trim();
     if (!q || loading) return;
@@ -51,7 +84,6 @@ export default function ChatWidget() {
     setMessages((prev) => [...prev, { role: "user", content: q }]);
     setLoading(true);
 
-    // Read context from ref (always fresh) or window fallback
     const ctx = pageContextRef.current || window.__ADA_PAGE_CONTEXT__ || null;
 
     let enrichedQuestion = q;
@@ -82,6 +114,10 @@ export default function ChatWidget() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
+  // Panel sizing
+  const panelW = expanded ? 620 : 380;
+  const panelH = expanded ? 680 : 520;
+
   return (
     <>
       {/* FAB */}
@@ -108,18 +144,21 @@ export default function ChatWidget() {
       {open && (
         <div style={{
           position: "fixed", bottom: 24, right: 24, zIndex: 9999,
-          width: 380, height: 520, borderRadius: 20,
+          width: panelW, maxWidth: "calc(100vw - 48px)",
+          height: panelH, maxHeight: "calc(100vh - 48px)",
+          borderRadius: 20,
           background: "#fff", border: "1px solid #e2e8f0",
           boxShadow: "0 20px 60px rgba(0,0,0,.18)",
           display: "flex", flexDirection: "column",
           overflow: "hidden",
           animation: "chatSlideUp .25s ease-out",
+          transition: "width .3s ease, height .3s ease",
         }}>
           {/* Header */}
           <div style={{
-            padding: "14px 16px", display: "flex", alignItems: "center", gap: 10,
+            padding: "12px 16px", display: "flex", alignItems: "center", gap: 10,
             background: "linear-gradient(135deg, #6366f1, #4f46e5)",
-            color: "#fff",
+            color: "#fff", flexShrink: 0,
           }}>
             <div style={{
               width: 32, height: 32, borderRadius: "50%",
@@ -135,13 +174,42 @@ export default function ChatWidget() {
                   : "Assistente intelligente"}
               </div>
             </div>
+            {/* Expand / Collapse */}
+            <button
+              onClick={() => setExpanded((s) => !s)}
+              title={expanded ? "Riduci" : "Espandi"}
+              style={{
+                background: "rgba(255,255,255,.15)", border: "none", borderRadius: 8,
+                width: 28, height: 28, cursor: "pointer", color: "#fff",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "background .2s",
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = "rgba(255,255,255,.25)"}
+              onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,.15)"}
+            >
+              {expanded ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
+                  <line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/>
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+                  <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+                </svg>
+              )}
+            </button>
+            {/* Close */}
             <button
               onClick={() => setOpen(false)}
               style={{
                 background: "rgba(255,255,255,.15)", border: "none", borderRadius: 8,
                 width: 28, height: 28, cursor: "pointer", color: "#fff",
                 display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "background .2s",
               }}
+              onMouseOver={(e) => e.currentTarget.style.background = "rgba(255,255,255,.25)"}
+              onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,.15)"}
             >✕</button>
           </div>
 
@@ -157,10 +225,10 @@ export default function ChatWidget() {
                 marginTop: 60, lineHeight: 1.6,
               }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
-                Chiedimi qualsiasi cosa su{" "}
+                Chiedimi qualsiasi cosa
                 {pageContextRef.current?.page
-                  ? <strong>{pageContextRef.current.page}</strong>
-                  : "ADA"}
+                  ? <> su <strong>{pageContextRef.current.page}</strong></>
+                  : <> su ADA</>}
                 !
               </div>
             )}
@@ -168,17 +236,20 @@ export default function ChatWidget() {
             {messages.map((m, i) => (
               <div key={i} style={{
                 alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                maxWidth: "85%",
+                maxWidth: "88%",
               }}>
-                <div style={{
-                  padding: "10px 14px", borderRadius: 14, fontSize: 13.5, lineHeight: 1.55,
-                  ...(m.role === "user"
-                    ? { background: "#6366f1", color: "#fff", borderBottomRightRadius: 4 }
-                    : { background: "#fff", color: "#1e293b", border: "1px solid #e2e8f0", borderBottomLeftRadius: 4 }),
-                  whiteSpace: "pre-wrap",
-                }}>
-                  {m.content}
-                </div>
+                <div
+                  style={{
+                    padding: "10px 14px", borderRadius: 14, fontSize: 13.5, lineHeight: 1.6,
+                    ...(m.role === "user"
+                      ? { background: "#6366f1", color: "#fff", borderBottomRightRadius: 4 }
+                      : { background: "#fff", color: "#1e293b", border: "1px solid #e2e8f0", borderBottomLeftRadius: 4 }),
+                  }}
+                  {...(m.role === "assistant"
+                    ? { dangerouslySetInnerHTML: { __html: renderMarkdown(m.content) } }
+                    : { children: m.content }
+                  )}
+                />
                 {m.sources?.length > 0 && (
                   <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {m.sources.map((s, j) => (
@@ -199,10 +270,12 @@ export default function ChatWidget() {
                 <div style={{
                   padding: "10px 14px", borderRadius: 14, fontSize: 13,
                   background: "#fff", border: "1px solid #e2e8f0",
-                  display: "flex", alignItems: "center", gap: 6, color: "#94a3b8",
+                  display: "flex", alignItems: "center", gap: 8, color: "#94a3b8",
                 }}>
-                  <span className="dot-pulse" />
-                  Sto pensando…
+                  <span className="ada-dot-pulse" />
+                  <span className="ada-dot-pulse" style={{ animationDelay: ".2s" }} />
+                  <span className="ada-dot-pulse" style={{ animationDelay: ".4s" }} />
+                  <span style={{ marginLeft: 4 }}>Sto pensando…</span>
                 </div>
               </div>
             )}
@@ -211,7 +284,7 @@ export default function ChatWidget() {
           {/* Input */}
           <div style={{
             padding: "10px 12px", borderTop: "1px solid #e2e8f0",
-            display: "flex", gap: 8, background: "#fff",
+            display: "flex", gap: 8, background: "#fff", flexShrink: 0,
           }}>
             <input
               ref={inputRef}
@@ -248,11 +321,11 @@ export default function ChatWidget() {
           from { opacity: 0; transform: translateY(20px) scale(.95); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
-        .dot-pulse {
+        .ada-dot-pulse {
           display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-          background: #94a3b8; animation: dotPulse 1.2s infinite;
+          background: #94a3b8; animation: adaDotPulse 1.2s infinite ease-in-out;
         }
-        @keyframes dotPulse {
+        @keyframes adaDotPulse {
           0%, 80%, 100% { opacity: .3; transform: scale(.8); }
           40% { opacity: 1; transform: scale(1.2); }
         }
