@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/Badge";
 import { Pill } from "../components/ui/Pill";
 import { PencilIcon, ArrowRightIcon, CheckCircleIcon, XCircleIcon, BarsIcon } from "../components/ui/Icons";
 import { API_BASE } from "../lib/api";
+import { useSetPageContext } from "../contexts/PageContext";
 
 function getAuth() {
   try {
@@ -617,6 +618,22 @@ export default function AnalisiBilancioDettaglio() {
     setToast({ type, msg });
     setTimeout(() => setToast(null), 3000);
   }
+
+  // --- Page context for AI ChatWidget ---
+  useSetPageContext(
+    recap ? {
+      page: "Analisi Bilancio",
+      summary: `Bilancio di ${nomeAzienda || 'N/D'} - Periodo ${recap.period?.anno_inizio || '?'}-${recap.period?.anno_fine || '?'}`,
+      data: {
+        azienda: nomeAzienda,
+        periodo: recap.period,
+        giudizio: advancedGiudizio,
+        score: advancedScore,
+        indici: indici?.filter(i => !i.missing).map(i => ({ nome: i.nome, valore: i.valore, fuoriSoglia: i.fuori })),
+        indiciAvanzati: indiciAdvanced?.filter(i => !i.missing).map(i => ({ nome: i.nome, valore: i.valore, fuoriSoglia: i.fuori })),
+      }
+    } : null
+  );
 
   const handleRefreshedData = useCallback((payload) => {
     if (!payload) return;

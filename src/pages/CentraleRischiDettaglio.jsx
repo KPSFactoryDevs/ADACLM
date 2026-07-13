@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import { CentraleRischi, API_BASE } from "../lib/api";
 import { useParams } from 'react-router-dom';
+import { useSetPageContext } from "../contexts/PageContext";
 /* ----------------- Utils ----------------- */
 const fmtMoney = (v) =>
   (Number(v) || 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
@@ -258,6 +259,23 @@ period = id,  // se lo passi, override
 
   const PANORAMICA = data.panoramica;
   const INTERMEDIARI = data.intermediari;
+
+  // --- Page context for AI ChatWidget ---
+  useSetPageContext(
+    !loading && PANORAMICA ? {
+      page: "Analisi Centrale Rischi",
+      summary: `Centrale Rischi - ${PANORAMICA.periodoAnalisi || 'N/D'}`,
+      data: {
+        periodo: PANORAMICA.periodoAnalisi,
+        accordatoTotale: PANORAMICA.accordatoTotale,
+        utilizzatoTotale: PANORAMICA.utilizzatoTotale,
+        percentualeUtilizzato: PANORAMICA.percentualeUtilizzato,
+        sconfinantiTotale: PANORAMICA.sconfinantiTotale,
+        scadutoTotale: PANORAMICA.scadutoTotale,
+        intermediari: INTERMEDIARI?.length || 0,
+      }
+    } : null
+  );
   const ANOMALIE_UTILIZZI = data.anomalieUtilizzi;
   const ANOMALIE_LIEVI = data.anomalieLievi;
   const SCONF_90   = data.sconfini.entro90;

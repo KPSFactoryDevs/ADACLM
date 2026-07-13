@@ -6,6 +6,7 @@ import { Pill } from "../components/ui/Pill";
 import { Sparkline } from "../components/ui/Sparkline";
 import { AlertIcon, TrendIcon, BarsIcon, BriefcaseIcon, BuildingIcon, CrIcon, ShieldIcon, ArrowRightIcon } from "../components/ui/Icons";
 import { API_BASE } from "../lib/api";
+import { useSetPageContext } from "../contexts/PageContext";
 
 function getToken() {
   try { return JSON.parse(localStorage.getItem("sb_auth"))?.token || null; }
@@ -181,6 +182,21 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [noDefault, setNoDefault] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+
+  // --- Page context for AI ChatWidget ---
+  useSetPageContext(
+    data ? {
+      page: "Dashboard",
+      summary: `Dashboard panoramica di ${data.nomeAzienda || 'N/D'}`,
+      data: {
+        azienda: data.nomeAzienda,
+        giudizioAllerta: data.giudizio,
+        scoreAllerta: data.score,
+        bilanci: data.bilanci?.length || 0,
+        cr: data.cr?.length || 0,
+      }
+    } : null
+  );
 
   useEffect(() => {
     async function loadDashboard() {

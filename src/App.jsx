@@ -4,6 +4,7 @@ import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 
 import Shell from "./layout/Shell.jsx";
 import ChatWidget from "./components/ChatWidget.jsx";
+import { PageContextProvider } from "./contexts/PageContext.jsx";
 
 // Performance Optimization: Lazy Loading Pages
 const Login = React.lazy(() => import("./pages/Login.jsx"));
@@ -69,7 +70,7 @@ const ProtectedLayout = () => (
 
 export default function App() {
   return (
-    <>
+    <PageContextProvider>
       <Routes>
         <Route 
           path="/login" 
@@ -119,6 +120,6 @@ export default function App() {
       <Suspense fallback={null}>
         <ChatWidget />
       </Suspense>
-    </>
+    </PageContextProvider>
   );
 }

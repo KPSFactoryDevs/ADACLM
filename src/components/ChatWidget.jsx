@@ -1,7 +1,8 @@
 // src/components/ChatWidget.jsx
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Agent } from "../lib/api";
+import { usePageContext } from "../contexts/PageContext";
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
@@ -11,6 +12,8 @@ export default function ChatWidget() {
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const pageContext = usePageContext();
 
   const companyId = (() => {
     try { return JSON.parse(localStorage.getItem("sb_company"))?.id || 1; }
@@ -44,8 +47,18 @@ export default function ChatWidget() {
     setMessages((prev) => [...prev, { role: "user", content: q }]);
     setLoading(true);
 
+    // Build enriched question with page context
+    let enrichedQuestion = q;
+    if (pageContext) {
+      const ctxStr = typeof pageContext.data === 'object'
+        ? JSON.stringify(pageContext.data, null, 0)
+        : String(pageContext.data || '');
+      enrichedQuestion = `[Contesto pagina: ${pageContext.page || pathname}${pageContext.summary ? ' - ' + pageContext.summary : ''}]
+${ctxStr ? 'Dati visibili: ' + ctxStr.slice(0, 3000) + '\n' : ''}Domanda utente: ${q}`;
+    }
+
     try {
-      const res = await Agent.chat(q, companyId, history);
+      const res = await Agent.chat(enrichedQuestion, companyId, history);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: res.answer || "Nessuna risposta.", sources: res.sources },
@@ -58,7 +71,7 @@ export default function ChatWidget() {
     } finally {
       setLoading(false);
     }
-  }, [input, loading, messages, companyId]);
+  }, [input, loading, messages, companyId, pageContext, pathname]);
 
   const onKey = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
