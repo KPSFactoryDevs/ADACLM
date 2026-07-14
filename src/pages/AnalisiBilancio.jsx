@@ -68,6 +68,15 @@ const Bilanci = {
 
     return api("/recapBilancio", { method: "POST", isForm: true, body: fd });
   },
+  async uploadPdf({ file, forma_giuridica, tipo_azienda }) {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("filename", file.name);
+    fd.append("forma_giuridica", forma_giuridica);
+    fd.append("tipo_azienda", tipo_azienda);
+
+    return api("/importBilancioPdf", { method: "POST", isForm: true, body: fd });
+  },
   async getSettori() {
     return api("/getSettori", { method: "GET", auth: false });
   },
@@ -101,6 +110,7 @@ export default function AnalisiBilancio() {
   const [tipoAzienda, setTipoAzienda] = useState("");
   const [settori, setSettori] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [convertingPdf, setConvertingPdf] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -210,14 +220,26 @@ export default function AnalisiBilancio() {
     }
   }
 
+  function isPdfFile(f) {
+    if (!f) return false;
+    const name = (f.name || "").toLowerCase();
+    return name.endsWith(".pdf") || f.type === "application/pdf";
+  }
+
   async function handleUpload() {
     if (!file || !formaGiuridica || !tipoAzienda) {
       showToast("error", "Compila tutti i campi richiesti");
       return;
     }
     setUploading(true);
+    const isPdf = isPdfFile(file);
+    if (isPdf) setConvertingPdf(true);
     try {
-      await Bilanci.upload({ file, forma_giuridica: formaGiuridica, tipo_azienda: tipoAzienda });
+      if (isPdf) {
+        await Bilanci.uploadPdf({ file, forma_giuridica: formaGiuridica, tipo_azienda: tipoAzienda });
+      } else {
+        await Bilanci.upload({ file, forma_giuridica: formaGiuridica, tipo_azienda: tipoAzienda });
+      }
       const refreshed = await Bilanci.listDocuments();
       setRows(mapDocumentsToRows(refreshed));
 
@@ -225,11 +247,12 @@ export default function AnalisiBilancio() {
       setFile(null);
       setFormaGiuridica("");
       setTipoAzienda("");
-      showToast("success", "Bilancio caricato correttamente");
+      showToast("success", isPdf ? "Bilancio PDF convertito e caricato" : "Bilancio caricato correttamente");
     } catch (e) {
       showToast("error", e.message || "Caricamento fallito");
     } finally {
       setUploading(false);
+      setConvertingPdf(false);
     }
   }
 
@@ -421,6 +444,16 @@ export default function AnalisiBilancio() {
                     onChange={(e) => setFile(e.target.files?.[0] || null)}
                   />
                 </div>
+                {file && isPdfFile(file) && (
+                  <div className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200/70">
+                    <svg className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-xs text-amber-700 leading-relaxed">
+                      <span className="font-semibold">File PDF rilevato.</span> Il bilancio verrà convertito automaticamente in formato XBRL tramite AI. La conversione potrebbe richiedere 15-30 secondi.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -477,7 +510,7 @@ export default function AnalisiBilancio() {
                 {uploading ? (
                   <span className="flex items-center gap-2">
                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                     Caricamento...
+                     {convertingPdf ? "Conversione PDF in corso..." : "Caricamento..."}
                   </span>
                 ) : "Carica Bilancio"}
               </button>
