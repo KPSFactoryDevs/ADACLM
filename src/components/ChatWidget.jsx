@@ -102,10 +102,15 @@ export default function ChatWidget() {
         ...prev,
         { role: "assistant", content: res.answer || "Nessuna risposta.", sources: res.sources },
       ]);
-    } catch {
+    } catch (err) {
+      console.error('[ADA AI] Error:', err);
+      const msg = String(err?.message || '').toLowerCase();
+      const isRateLimit = msg.includes('rate') || msg.includes('429') || msg.includes('sovraccarico');
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "⚠️ Errore. Riprova." },
+        { role: "assistant", content: isRateLimit
+            ? "⏳ Il servizio è momentaneamente sovraccarico. Riprova tra qualche secondo."
+            : "⚠️ Errore nella risposta. Riprova tra poco." },
       ]);
     } finally {
       setLoading(false);
